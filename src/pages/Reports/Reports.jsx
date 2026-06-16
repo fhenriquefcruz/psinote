@@ -25,34 +25,51 @@ export default function Reports() {
 
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = 210;
+    const margin = 20;
+    let y = 20;
 
-    // Header
-    doc.setFontSize(18);
+    // ===== HEADER =====
+    doc.setFontSize(22);
     doc.setTextColor('#4F46E5');
-    doc.text('PsiNote', 20, 25);
-
-    doc.setFontSize(10);
-    doc.setTextColor('#475569');
-    doc.text(`Psicólogo(a): ${userProfile?.name || 'Não informado'}`, 20, 35);
-    if (userProfile?.crp && userProfile?.crpUf) {
-      doc.text(`CRP: ${userProfile.crp} - ${userProfile.crpUf}`, 20, 41);
-    }
-    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 20, 47);
-
-    doc.line(20, 50, pageWidth - 20, 50);
-
-    // Título
-    doc.setFontSize(16);
-    doc.setTextColor('#0f172a');
-    doc.text(`Relatório do Paciente: ${patient.name}`, 20, 60);
-
-    // Dados cadastrais
-    doc.setFontSize(12);
-    doc.setTextColor('#475569');
-    let y = 70;
-    doc.text(`📋 Dados Cadastrais`, 20, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text('🧠 PsiNote', margin, y);
     y += 8;
+
     doc.setFontSize(10);
+    doc.setTextColor('#475569');
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Psicólogo(a): ${userProfile?.name || 'Não informado'}`, margin, y);
+    y += 6;
+    if (userProfile?.crp && userProfile?.crpUf) {
+      doc.text(`CRP: ${userProfile.crp} - ${userProfile.crpUf}`, margin, y);
+      y += 6;
+    }
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, margin, y);
+    y += 8;
+
+    // Linha separadora
+    doc.setDrawColor('#E2E8F0');
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    // ===== TÍTULO =====
+    doc.setFontSize(16);
+    doc.setTextColor('#0F172A');
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Relatório do Paciente: ${patient.name}`, margin, y);
+    y += 10;
+
+    // ===== DADOS CADASTRAIS =====
+    doc.setFontSize(12);
+    doc.setTextColor('#4F46E5');
+    doc.setFont('helvetica', 'bold');
+    doc.text('Dados Cadastrais', margin, y);
+    y += 6;
+
+    doc.setFontSize(10);
+    doc.setTextColor('#475569');
+    doc.setFont('helvetica', 'normal');
     const fields = [
       ['Nome:', patient.name],
       ['WhatsApp:', patient.whatsapp || 'Não informado'],
@@ -62,16 +79,21 @@ export default function Reports() {
       ['Profissão:', patient.profession || 'Não informado']
     ];
     fields.forEach(([label, value]) => {
-      doc.text(`${label} ${value}`, 25, y);
+      doc.text(`${label} ${value}`, margin + 5, y);
       y += 6;
     });
 
-    // Anamnese
+    // ===== ANAMNESE =====
     y += 4;
     doc.setFontSize(12);
-    doc.text(`📋 Anamnese`, 20, y);
-    y += 8;
+    doc.setTextColor('#4F46E5');
+    doc.setFont('helvetica', 'bold');
+    doc.text('Anamnese', margin, y);
+    y += 6;
+
     doc.setFontSize(10);
+    doc.setTextColor('#475569');
+    doc.setFont('helvetica', 'normal');
     const anamnesis = patient.anamnesis || {};
     const anamFields = [
       ['Queixa principal:', anamnesis.chiefComplaint || '-'],
@@ -82,28 +104,25 @@ export default function Reports() {
       ['Observações iniciais:', anamnesis.initialObservations || '-']
     ];
     anamFields.forEach(([label, value]) => {
-      if (value.length > 50) {
-        const lines = doc.splitTextToSize(value, 160);
-        doc.text(`${label}`, 25, y);
-        lines.forEach((line, i) => {
-          doc.text(line, 25, y + 4 + i * 5);
-        });
-        y += lines.length * 5 + 4;
-      } else {
-        doc.text(`${label} ${value}`, 25, y);
-        y += 6;
-      }
+      const lines = doc.splitTextToSize(value, pageWidth - margin * 2 - 30);
+      doc.text(`${label}`, margin + 5, y);
+      y += 4;
+      lines.forEach((line) => {
+        doc.text(line, margin + 5, y);
+        y += 5;
+      });
+      y += 2;
     });
 
-    // Sessões
+    // ===== SESSÕES =====
+    y += 6;
+    doc.setFontSize(12);
+    doc.setTextColor('#4F46E5');
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Sessões Realizadas (${sessions.length})`, margin, y);
     y += 8;
-    if (sessions.length > 0) {
-      doc.addPage();
-      y = 20;
-      doc.setFontSize(12);
-      doc.text(`📋 Sessões Realizadas (${sessions.length})`, 20, y);
-      y += 10;
 
+    if (sessions.length > 0) {
       const tableData = sessions.map(s => [
         s.date?.toDate().toLocaleDateString('pt-BR') || '',
         s.mainTheme || '-',
@@ -115,26 +134,119 @@ export default function Reports() {
         head: [['Data', 'Tema', 'Humor']],
         body: tableData,
         theme: 'grid',
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: '#4F46E5' }
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: '#4F46E5', textColor: '#FFFFFF', fontSize: 9 },
+        margin: { left: margin, right: margin }
       });
+      y = doc.lastAutoTable.finalY + 8;
     } else {
-      doc.text('Nenhuma sessão registrada.', 20, y + 4);
+      doc.text('Nenhuma sessão registrada.', margin + 5, y);
+      y += 8;
     }
 
-    // Footer
+    // ===== FOOTER =====
     const totalPages = doc.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       doc.setFontSize(8);
-      doc.setTextColor('#94a3b8');
-      doc.text(`Relatório gerado em ${new Date().toLocaleDateString('pt-BR')} - Página ${i}/${totalPages}`, pageWidth - 50, 285);
+      doc.setTextColor('#94A3B8');
+      doc.setFont('helvetica', 'normal');
+      doc.text(
+        `Relatório gerado em ${new Date().toLocaleDateString('pt-BR')} - Página ${i}/${totalPages}`,
+        pageWidth - margin - 50,
+        285
+      );
     }
 
     // Download
     doc.save(`Relatorio_${patient.name}_${new Date().toISOString().slice(0,10)}.pdf`);
   };
 
+  // ===== RELATÓRIO ESTATÍSTICO =====
+  const generateStatisticsPDF = async () => {
+    const allPatients = await getPatients(user.uid);
+    const activePatients = allPatients.filter(p => p.status === 'active');
+    const archivedPatients = allPatients.filter(p => p.status === 'archived');
+    const deletedPatients = allPatients.filter(p => p.status === 'deleted');
+
+    // Buscar todas as sessões de pacientes ativos para estatísticas
+    let totalSessions = 0;
+    for (const p of activePatients) {
+      const sessions = await getSessionsByPatient(p.id, user.uid);
+      totalSessions += sessions.length;
+    }
+
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const margin = 20;
+    let y = 20;
+    const pageWidth = 210;
+
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor('#4F46E5');
+    doc.setFont('helvetica', 'bold');
+    doc.text('🧠 PsiNote', margin, y);
+    y += 8;
+
+    doc.setFontSize(10);
+    doc.setTextColor('#475569');
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Psicólogo(a): ${userProfile?.name || 'Não informado'}`, margin, y);
+    y += 6;
+    if (userProfile?.crp && userProfile?.crpUf) {
+      doc.text(`CRP: ${userProfile.crp} - ${userProfile.crpUf}`, margin, y);
+      y += 6;
+    }
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, margin, y);
+    y += 8;
+
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    // Título
+    doc.setFontSize(16);
+    doc.setTextColor('#0F172A');
+    doc.setFont('helvetica', 'bold');
+    doc.text('Relatório Estatístico', margin, y);
+    y += 10;
+
+    // Dados
+    doc.setFontSize(11);
+    doc.setTextColor('#475569');
+    doc.setFont('helvetica', 'normal');
+
+    const stats = [
+      ['Total de pacientes cadastrados', allPatients.length],
+      ['Pacientes ativos', activePatients.length],
+      ['Pacientes arquivados', archivedPatients.length],
+      ['Pacientes na lixeira', deletedPatients.length],
+      ['Total de sessões realizadas', totalSessions]
+    ];
+
+    stats.forEach(([label, value]) => {
+      doc.text(`${label}:`, margin, y);
+      doc.text(String(value), margin + 100, y);
+      y += 8;
+    });
+
+    // Footer
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor('#94A3B8');
+      doc.setFont('helvetica', 'normal');
+      doc.text(
+        `Relatório gerado em ${new Date().toLocaleDateString('pt-BR')} - Página ${i}/${totalPages}`,
+        pageWidth - margin - 50,
+        285
+      );
+    }
+
+    doc.save(`Relatorio_Estatistico_${new Date().toISOString().slice(0,10)}.pdf`);
+  };
+
+  // ===== HANDLE GENERATE =====
   const handleGenerate = async () => {
     setLoading(true);
     try {
@@ -145,12 +257,10 @@ export default function Reports() {
       }
       if (reportType === 'patient') {
         await generatePatientPDF(selectedPatient);
-        toast.success('Relatório gerado com sucesso!');
+        toast.success('Relatório do paciente gerado!');
       } else {
-        // Estatístico - simplificado
-        const allPatients = await getPatients(user.uid);
-        const activePatients = allPatients.filter(p => p.status === 'active');
-        toast.info(`Relatório estatístico: ${allPatients.length} pacientes, ${activePatients.length} ativos. Em breve mais detalhes.`);
+        await generateStatisticsPDF();
+        toast.success('Relatório estatístico gerado!');
       }
     } catch (error) {
       toast.error('Erro ao gerar relatório: ' + error.message);
@@ -159,6 +269,7 @@ export default function Reports() {
     }
   };
 
+  // ===== RENDER =====
   return (
     <div style={{ padding: '1.5rem', maxWidth: '700px', margin: '0 auto' }}>
       <div style={{ marginBottom: '2rem' }}>
