@@ -3,7 +3,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { getAppointments, createAppointment, updateAppointmentStatus, deleteAppointment } from '../../services/appointmentService';
 import { getPatients } from '../../services/patientService';
 import { toast } from 'react-toastify';
-import { Plus, X, Check, Calendar as CalendarIcon, Clock as ClockIcon } from 'lucide-react';
+import { Plus, X, Check, Calendar as CalendarIcon, Clock as ClockIcon, Search } from 'lucide-react';
 
 export default function Agenda() {
   const { user } = useAuth();
@@ -19,6 +19,9 @@ export default function Agenda() {
     notes: ''
   });
   const [filter, setFilter] = useState('all');
+  const [patientFilter, setPatientFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredPatients, setFilteredPatients] = useState([]);
 
   const loadData = async () => {
     try {
@@ -28,8 +31,10 @@ export default function Agenda() {
       ]);
       setAppointments(apps);
       setPatients(pats);
+      setFilteredPatients(pats);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
+      toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -39,8 +44,21 @@ export default function Agenda() {
     loadData();
   }, [user]);
 
+  useEffect(() => {
+    if (searchTerm.length >= 2) {
+      const filtered = patients.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) && p.status === 'active');
+      setFilteredPatients(filtered);
+    } else {
+      setFilteredPatients(patients.filter(p => p.status === 'active'));
+    }
+  }, [searchTerm, patients]);
+
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (!formData.patientId || !formData.date || !formData.time) {
+      toast.warning('Preencha todos os campos obrigatórios');
+      return;
+    }
     try {
       const patient = patients.find(p => p.id === formData.patientId);
       await createAppointment(user.uid, {
@@ -57,13 +75,20 @@ export default function Agenda() {
   };
 
   const handleStatus = async (id, status) => {
-    try {
+    if (status === 'canceled') {
+      const reason = prompt('Motivo do cancelamento:');
+      if (!reason) return;
+      // Salvar a razão no campo notes
+      const appointment = appointments.find(a => a.id === id);
       await updateAppointmentStatus(id, user.uid, status);
-      toast.success(`Consulta ${status === 'done' ? 'realizada' : status === 'canceled' ? 'cancelada' : status}`);
-      await loadData();
-    } catch (error) {
-      toast.error('Erro ao atualizar status: ' + error.message);
+      // Atualizar notas com a razão
+      await updateAppointment(id, user.uid, { notes: `${appointment.notes || ''}\nCancelado: ${reason}` });
+      toast.success('Consulta cancelada');
+    } else {
+      await updateAppointmentStatus(id, user.uid, status);
+      toast.success(`Consulta ${status === 'done' ? 'realizada' : status}`);
     }
+    await loadData();
   };
 
   const handleDelete = async (id) => {
@@ -77,9 +102,20 @@ export default function Agenda() {
     }
   };
 
-  const filteredAppointments = filter === 'all'
-    ? appointments
-    : appointments.filter(a => a.status === filter);
+  const filteredAppointments = appointments.filter(a => {
+    if (filter !== 'all' && a.status !== filter) return false;
+    if (patientFilter && a.patientId !== patientFilter) return false;
+    return true;
+  });
+
+  // Contadores por paciente
+  const getPatientStats = (patientId) => {
+    const patientAppointments = appointments.filter(a => a.patientId === patientId);
+    const done = patientAppointments.filter(a => a.status === 'done').length;
+    const canceled = patientAppointments.filter(a => a.status === 'canceled').length;
+    const missed = patientAppointments.filter(a => a.status === 'missed').length;
+    return { done, canceled, missed };
+  };
 
   const statusLabels = {
     scheduled: { label: 'Agendada', color: '#F59E0B', bg: '#FFFBEB' },
@@ -89,284 +125,109 @@ export default function Agenda() {
     missed: { label: 'Faltou', color: '#6B7280', bg: '#F3F4F6' }
   };
 
-  if (loading) {
-    return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Carregando agenda...</div>;
-  }
+  if (loading) return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Carregando agenda...</div>;
 
   return (
     <div style={{ padding: '1.5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.5rem' }}>
         <div>
           <h1 style={{ margin: 0 }}>📅 Agenda</h1>
           <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
             {appointments.filter(a => a.status === 'scheduled' || a.status === 'confirmed').length} consultas agendadas
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.5rem 1rem',
-            background: 'var(--primary)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
-            fontWeight: 500,
-            transition: 'var(--transition)'
-          }}
-        >
+        <button onClick={() => setShowForm(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500, transition: 'var(--transition)' }}>
           <Plus size={18} /> Nova Consulta
         </button>
       </div>
 
-      {/* Filtros */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        {['all', 'scheduled', 'confirmed', 'done', 'canceled', 'missed'].map(status => (
-          <button
-            key={status}
-            onClick={() => setFilter(status)}
-            style={{
-              padding: '0.3rem 0.8rem',
-              borderRadius: '20px',
-              border: filter === status ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-              background: filter === status ? 'var(--primary-light)' : 'transparent',
-              color: filter === status ? 'var(--primary)' : 'var(--text-secondary)',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              fontWeight: filter === status ? 600 : 400,
-              transition: 'var(--transition)'
-            }}
-          >
-            {status === 'all' ? 'Todas' : statusLabels[status]?.label || status}
-          </button>
-        ))}
-      </div>
-
       {/* Formulário */}
       {showForm && (
-        <div style={{
-          background: 'var(--bg-primary)',
-          padding: '1.5rem',
-          borderRadius: 'var(--radius)',
-          border: '1px solid var(--border-color)',
-          marginBottom: '1.5rem',
-          boxShadow: 'var(--shadow-md)'
-        }}>
+        <div style={{ background: 'var(--bg-primary)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', marginBottom: '1.5rem', boxShadow: 'var(--shadow-md)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ margin: 0 }}>Nova Consulta</h3>
-            <button
-              onClick={() => setShowForm(false)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-            >
-              <X size={20} />
-            </button>
+            <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
           </div>
           <form onSubmit={handleCreate} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
-            <select
-              value={formData.patientId}
-              onChange={e => setFormData({ ...formData, patientId: e.target.value })}
-              required
-              style={{
-                padding: '0.5rem',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)',
-                gridColumn: '1 / -1'
-              }}
-            >
-              <option value="">Selecione um paciente</option>
-              {patients.filter(p => p.status === 'active').map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-            <input
-              type="date"
-              value={formData.date}
-              onChange={e => setFormData({ ...formData, date: e.target.value })}
-              required
-              style={{
-                padding: '0.5rem',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)'
-              }}
-            />
-            <input
-              type="time"
-              value={formData.time}
-              onChange={e => setFormData({ ...formData, time: e.target.value })}
-              required
-              style={{
-                padding: '0.5rem',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)'
-              }}
-            />
-            <input
-              type="number"
-              placeholder="Duração (min)"
-              value={formData.duration}
-              onChange={e => setFormData({ ...formData, duration: Number(e.target.value) })}
-              style={{
-                padding: '0.5rem',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)'
-              }}
-            />
-            <textarea
-              placeholder="Observações"
-              value={formData.notes}
-              onChange={e => setFormData({ ...formData, notes: e.target.value })}
-              rows="2"
-              style={{
-                padding: '0.5rem',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)',
-                gridColumn: '1 / -1'
-              }}
-            />
-            <button
-              type="submit"
-              style={{
-                padding: '0.6rem',
-                background: 'var(--primary)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                fontWeight: 500,
-                gridColumn: '1 / -1'
-              }}
-            >
-              Agendar
-            </button>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>Paciente *</label>
+              <div style={{ position: 'relative' }}>
+                <input type="text" placeholder="Digite o nome do paciente..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                <Search size={16} style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                {searchTerm.length >= 2 && filteredPatients.length > 0 && (
+                  <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', maxHeight: '200px', overflowY: 'auto', zIndex: 10, boxShadow: 'var(--shadow-md)' }}>
+                    {filteredPatients.map(p => (
+                      <div key={p.id} onClick={() => { setFormData({ ...formData, patientId: p.id }); setSearchTerm(p.name); setFilteredPatients([]); }} style={{ padding: '0.5rem', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', transition: 'var(--transition)' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                        {p.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} required style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+            <input type="time" value={formData.time} onChange={e => setFormData({ ...formData, time: e.target.value })} required style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+            <div>
+              <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Duração (min)</label>
+              <input type="number" value={formData.duration} onChange={e => setFormData({ ...formData, duration: Number(e.target.value) })} style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+            </div>
+            <textarea placeholder="Observações" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} rows="2" style={{ gridColumn: '1 / -1', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+            <button type="submit" style={{ gridColumn: '1 / -1', padding: '0.6rem', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500 }}>Agendar</button>
           </form>
         </div>
       )}
 
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        {['all', 'scheduled', 'confirmed', 'done', 'canceled', 'missed'].map(status => (
+          <button key={status} onClick={() => setFilter(status)} style={{ padding: '0.3rem 0.8rem', borderRadius: '20px', border: filter === status ? '2px solid var(--primary)' : '1px solid var(--border-color)', background: filter === status ? 'var(--primary-light)' : 'transparent', color: filter === status ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: filter === status ? 600 : 400 }}>
+            {status === 'all' ? 'Todas' : statusLabels[status]?.label || status}
+          </button>
+        ))}
+        <select value={patientFilter} onChange={e => setPatientFilter(e.target.value)} style={{ padding: '0.3rem 0.6rem', borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '0.75rem' }}>
+          <option value="">Todos os pacientes</option>
+          {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </div>
+
       {/* Lista de consultas */}
       <div style={{ display: 'grid', gap: '0.5rem' }}>
         {filteredAppointments.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-            Nenhuma consulta encontrada
-          </div>
+          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Nenhuma consulta encontrada</div>
         ) : (
           filteredAppointments.map(a => {
             const statusInfo = statusLabels[a.status] || statusLabels.scheduled;
+            const stats = getPatientStats(a.patientId);
             return (
-              <div
-                key={a.id}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '0.8rem 1rem',
-                  background: 'var(--bg-primary)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-color)',
-                  transition: 'var(--transition)'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1rem', background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', transition: 'var(--transition)', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
                   <div>
                     <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.patientName}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <CalendarIcon size={14} />
-                      {a.date?.toDate().toLocaleDateString('pt-BR')}
-                      <ClockIcon size={14} />
-                      {a.time} ({a.duration || 50} min)
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <CalendarIcon size={14} /> {a.date?.toDate().toLocaleDateString('pt-BR')}
+                      <ClockIcon size={14} /> {a.time} ({a.duration || 50} min)
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        ✅ {stats.done} | ❌ {stats.canceled} | ⏳ {stats.missed}
+                      </span>
                     </div>
                   </div>
-                  <span style={{
-                    padding: '0.15rem 0.6rem',
-                    borderRadius: '12px',
-                    fontSize: '0.7rem',
-                    fontWeight: 500,
-                    background: statusInfo.bg,
-                    color: statusInfo.color
-                  }}>
-                    {statusInfo.label}
-                  </span>
-                  {a.notes && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                      {a.notes}
-                    </span>
-                  )}
+                  <span style={{ padding: '0.15rem 0.6rem', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 500, background: statusInfo.bg, color: statusInfo.color }}>{statusInfo.label}</span>
+                  {a.notes && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.notes}</span>}
                 </div>
-                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                   {(a.status === 'scheduled' || a.status === 'confirmed') && (
                     <>
-                      <button
-                        onClick={() => handleStatus(a.id, 'done')}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          color: '#10B981',
-                          padding: '0.2rem 0.4rem',
-                          fontSize: '0.8rem'
-                        }}
-                        title="Marcar como realizada"
-                      >
-                        <Check size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleStatus(a.id, 'canceled')}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          color: '#EF4444',
-                          padding: '0.2rem 0.4rem',
-                          fontSize: '0.8rem'
-                        }}
-                        title="Cancelar"
-                      >
-                        <X size={16} />
-                      </button>
+                      <button onClick={() => handleStatus(a.id, 'done')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10B981', padding: '0.2rem 0.4rem' }} title="Realizada"><Check size={16} /></button>
+                      <button onClick={() => handleStatus(a.id, 'canceled')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '0.2rem 0.4rem' }} title="Cancelar"><X size={16} /></button>
+                      <button onClick={() => handleStatus(a.id, 'missed')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: '0.2rem 0.4rem' }} title="Faltou">⏳</button>
                     </>
                   )}
                   {(a.status === 'canceled' || a.status === 'missed') && (
-                    <button
-                      onClick={() => handleStatus(a.id, 'scheduled')}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: '#F59E0B',
-                        padding: '0.2rem 0.4rem',
-                        fontSize: '0.8rem'
-                      }}
-                      title="Reagendar"
-                    >
-                      🔄
-                    </button>
+                    <button onClick={() => handleStatus(a.id, 'scheduled')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F59E0B', padding: '0.2rem 0.4rem' }} title="Reagendar">🔄</button>
                   )}
-                  <button
-                    onClick={() => handleDelete(a.id)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--text-muted)',
-                      padding: '0.2rem 0.4rem',
-                      fontSize: '0.8rem'
-                    }}
-                    title="Excluir"
-                  >
-                    🗑️
-                  </button>
+                  <button onClick={() => handleDelete(a.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.2rem 0.4rem' }} title="Excluir">🗑️</button>
                 </div>
               </div>
             );
