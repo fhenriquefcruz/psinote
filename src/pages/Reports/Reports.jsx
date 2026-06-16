@@ -1,3 +1,3 @@
 export default function Reports() {
-  return <div>Relatórios (em breve)</div>;
+  return <div style={{ padding: '1rem' }}>Relatórios (em breve)</div>;
 }
