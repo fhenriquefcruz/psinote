@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { getAppointments, createAppointment, updateAppointmentStatus, deleteAppointment } from '../../services/appointmentService';
+import { getAppointments, createAppointment, updateAppointmentStatus, deleteAppointment, rescheduleAppointment } from '../../services/appointmentService';
 import { getPatients } from '../../services/patientService';
 import { toast } from 'react-toastify';
 import { Plus, X, Check, Calendar as CalendarIcon, Clock as ClockIcon, Search } from 'lucide-react';
+import { parseDate, formatDateSafe, formatDateTimeSafe } from '../../utils/helpers';
 
 export default function Agenda() {
   const { user } = useAuth();
@@ -22,6 +23,8 @@ export default function Agenda() {
   const [patientFilter, setPatientFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredPatients, setFilteredPatients] = useState([]);
+  const [rescheduleData, setRescheduleData] = useState(null);
+  const [rescheduleForm, setRescheduleForm] = useState({ date: '', time: '' });
 
   const loadData = async () => {
     try {
@@ -31,7 +34,7 @@ export default function Agenda() {
       ]);
       setAppointments(apps);
       setPatients(pats);
-      setFilteredPatients(pats);
+      setFilteredPatients(pats.filter(p => p.status === 'active'));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -46,7 +49,10 @@ export default function Agenda() {
 
   useEffect(() => {
     if (searchTerm.length >= 2) {
-      const filtered = patients.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) && p.status === 'active');
+      const filtered = patients.filter(p => 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) && 
+        p.status === 'active'
+      );
       setFilteredPatients(filtered);
     } else {
       setFilteredPatients(patients.filter(p => p.status === 'active'));
@@ -75,20 +81,47 @@ export default function Agenda() {
   };
 
   const handleStatus = async (id, status) => {
+    let cancelReason = '';
     if (status === 'canceled') {
-      const reason = prompt('Motivo do cancelamento:');
-      if (!reason) return;
-      // Salvar a razão no campo notes
-      const appointment = appointments.find(a => a.id === id);
-      await updateAppointmentStatus(id, user.uid, status);
-      // Atualizar notas com a razão
-      await updateAppointment(id, user.uid, { notes: `${appointment.notes || ''}\nCancelado: ${reason}` });
-      toast.success('Consulta cancelada');
-    } else {
-      await updateAppointmentStatus(id, user.uid, status);
-      toast.success(`Consulta ${status === 'done' ? 'realizada' : status}`);
+      cancelReason = prompt('Motivo do cancelamento:');
+      if (cancelReason === null) return;
+      if (!cancelReason.trim()) {
+        toast.warning('É obrigatório informar o motivo do cancelamento');
+        return;
+      }
     }
-    await loadData();
+    try {
+      await updateAppointmentStatus(id, user.uid, status, cancelReason);
+      toast.success(`Consulta ${status === 'done' ? 'realizada' : status === 'canceled' ? 'cancelada' : status}`);
+      await loadData();
+    } catch (error) {
+      toast.error('Erro ao atualizar status: ' + error.message);
+    }
+  };
+
+  const handleReschedule = (appointment) => {
+    const dateObj = parseDate(appointment.date);
+    setRescheduleData(appointment);
+    setRescheduleForm({
+      date: dateObj ? dateObj.toISOString().slice(0,10) : '',
+      time: appointment.time || ''
+    });
+  };
+
+  const confirmReschedule = async (e) => {
+    e.preventDefault();
+    if (!rescheduleForm.date || !rescheduleForm.time) {
+      toast.warning('Preencha a nova data e hora');
+      return;
+    }
+    try {
+      await rescheduleAppointment(rescheduleData.id, user.uid, rescheduleForm.date, rescheduleForm.time);
+      toast.success('Consulta reagendada com sucesso!');
+      setRescheduleData(null);
+      await loadData();
+    } catch (error) {
+      toast.error('Erro ao reagendar: ' + error.message);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -108,7 +141,6 @@ export default function Agenda() {
     return true;
   });
 
-  // Contadores por paciente
   const getPatientStats = (patientId) => {
     const patientAppointments = appointments.filter(a => a.patientId === patientId);
     const done = patientAppointments.filter(a => a.status === 'done').length;
@@ -125,7 +157,9 @@ export default function Agenda() {
     missed: { label: 'Faltou', color: '#6B7280', bg: '#F3F4F6' }
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Carregando agenda...</div>;
+  if (loading) {
+    return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Carregando agenda...</div>;
+  }
 
   return (
     <div style={{ padding: '1.5rem' }}>
@@ -141,7 +175,7 @@ export default function Agenda() {
         </button>
       </div>
 
-      {/* Formulário */}
+      {/* Formulário de criação */}
       {showForm && (
         <div style={{ background: 'var(--bg-primary)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', marginBottom: '1.5rem', boxShadow: 'var(--shadow-md)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -188,7 +222,9 @@ export default function Agenda() {
         ))}
         <select value={patientFilter} onChange={e => setPatientFilter(e.target.value)} style={{ padding: '0.3rem 0.6rem', borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '0.75rem' }}>
           <option value="">Todos os pacientes</option>
-          {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {patients.filter(p => p.status === 'active').map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
         </select>
       </div>
 
@@ -200,21 +236,26 @@ export default function Agenda() {
           filteredAppointments.map(a => {
             const statusInfo = statusLabels[a.status] || statusLabels.scheduled;
             const stats = getPatientStats(a.patientId);
+            const dateObj = parseDate(a.date);
             return (
               <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1rem', background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', transition: 'var(--transition)', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
                   <div>
                     <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.patientName}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <CalendarIcon size={14} /> {a.date?.toDate().toLocaleDateString('pt-BR')}
+                      <CalendarIcon size={14} /> {dateObj ? dateObj.toLocaleDateString('pt-BR') : 'Data inválida'}
                       <ClockIcon size={14} /> {a.time} ({a.duration || 50} min)
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                         ✅ {stats.done} | ❌ {stats.canceled} | ⏳ {stats.missed}
                       </span>
                     </div>
+                    {a.cancelReason && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--danger)' }}>
+                        Motivo: {a.cancelReason}
+                      </div>
+                    )}
                   </div>
                   <span style={{ padding: '0.15rem 0.6rem', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 500, background: statusInfo.bg, color: statusInfo.color }}>{statusInfo.label}</span>
-                  {a.notes && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.notes}</span>}
                 </div>
                 <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                   {(a.status === 'scheduled' || a.status === 'confirmed') && (
@@ -222,10 +263,11 @@ export default function Agenda() {
                       <button onClick={() => handleStatus(a.id, 'done')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10B981', padding: '0.2rem 0.4rem' }} title="Realizada"><Check size={16} /></button>
                       <button onClick={() => handleStatus(a.id, 'canceled')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '0.2rem 0.4rem' }} title="Cancelar"><X size={16} /></button>
                       <button onClick={() => handleStatus(a.id, 'missed')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: '0.2rem 0.4rem' }} title="Faltou">⏳</button>
+                      <button onClick={() => handleReschedule(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F59E0B', padding: '0.2rem 0.4rem' }} title="Reagendar">🔄</button>
                     </>
                   )}
                   {(a.status === 'canceled' || a.status === 'missed') && (
-                    <button onClick={() => handleStatus(a.id, 'scheduled')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F59E0B', padding: '0.2rem 0.4rem' }} title="Reagendar">🔄</button>
+                    <button onClick={() => handleReschedule(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F59E0B', padding: '0.2rem 0.4rem' }} title="Reagendar">🔄</button>
                   )}
                   <button onClick={() => handleDelete(a.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.2rem 0.4rem' }} title="Excluir">🗑️</button>
                 </div>
@@ -234,6 +276,26 @@ export default function Agenda() {
           })
         )}
       </div>
+
+      {/* Modal de reagendamento */}
+      {rescheduleData && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'var(--bg-primary)', padding: '2rem', borderRadius: 'var(--radius)', maxWidth: '400px', width: '100%', boxShadow: 'var(--shadow-xl)' }}>
+            <h3 style={{ margin: '0 0 1rem 0' }}>Reagendar Consulta</h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+              Paciente: <strong>{rescheduleData.patientName}</strong>
+            </p>
+            <form onSubmit={confirmReschedule} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              <input type="date" value={rescheduleForm.date} onChange={e => setRescheduleForm({ ...rescheduleForm, date: e.target.value })} required style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+              <input type="time" value={rescheduleForm.time} onChange={e => setRescheduleForm({ ...rescheduleForm, time: e.target.value })} required style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button type="submit" style={{ flex: 1, padding: '0.6rem', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500 }}>Confirmar</button>
+                <button type="button" onClick={() => setRescheduleData(null)} style={{ flex: 1, padding: '0.6rem', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
