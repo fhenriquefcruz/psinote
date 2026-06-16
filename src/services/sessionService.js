@@ -1,13 +1,12 @@
 import { 
   collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, 
-  query, where, orderBy, serverTimestamp, setDoc
+  query, where, orderBy, serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { addActivity } from './activityService';
 
 const COLLECTION = 'sessions';
 
-// Criar sessão
 export const createSession = async (psychologistId, data) => {
   try {
     const sessionData = {
@@ -20,7 +19,6 @@ export const createSession = async (psychologistId, data) => {
       updatedAt: serverTimestamp()
     };
     const docRef = await addDoc(collection(db, COLLECTION), sessionData);
-    
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -29,7 +27,6 @@ export const createSession = async (psychologistId, data) => {
       targetId: docRef.id,
       details: { patientId: data.patientId }
     });
-    
     return { id: docRef.id, ...sessionData };
   } catch (error) {
     console.error('Erro ao criar sessão:', error);
@@ -37,7 +34,6 @@ export const createSession = async (psychologistId, data) => {
   }
 };
 
-// Buscar sessões de um paciente
 export const getSessionsByPatient = async (patientId, psychologistId) => {
   try {
     const q = query(
@@ -58,17 +54,27 @@ export const getSessionsByPatient = async (patientId, psychologistId) => {
   }
 };
 
-// Atualizar sessão com auto-save e versionamento
+export const getSessionById = async (sessionId) => {
+  try {
+    const docRef = doc(db, COLLECTION, sessionId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() };
+    }
+    return null;
+  } catch (error) {
+    console.error('Erro ao buscar sessão:', error);
+    throw error;
+  }
+};
+
 export const updateSession = async (sessionId, psychologistId, data, saveVersion = true) => {
   try {
     const docRef = doc(db, COLLECTION, sessionId);
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) throw new Error('Sessão não encontrada');
-    
     const currentData = docSnap.data();
     let previousVersions = currentData.previousVersions || [];
-    
-    // Salvar versão anterior se solicitado
     if (saveVersion) {
       const versionSnapshot = {
         ...currentData,
@@ -77,22 +83,17 @@ export const updateSession = async (sessionId, psychologistId, data, saveVersion
       };
       delete versionSnapshot.previousVersions;
       previousVersions.push(versionSnapshot);
-      
-      // Limitar a 10 versões para não estourar o Firestore
       if (previousVersions.length > 10) {
         previousVersions = previousVersions.slice(-10);
       }
     }
-    
     const updateData = {
       ...data,
       updatedAt: serverTimestamp(),
       version: (currentData.version || 0) + 1,
       previousVersions
     };
-    
     await updateDoc(docRef, updateData);
-    
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -101,7 +102,6 @@ export const updateSession = async (sessionId, psychologistId, data, saveVersion
       targetId: sessionId,
       details: { version: updateData.version }
     });
-    
     return { id: sessionId, ...updateData };
   } catch (error) {
     console.error('Erro ao atualizar sessão:', error);
@@ -109,23 +109,19 @@ export const updateSession = async (sessionId, psychologistId, data, saveVersion
   }
 };
 
-// Auto-save (rascunho)
 export const autoSaveSession = async (sessionId, psychologistId, data) => {
-  // Similar ao update, mas sem versionar a cada auto-save
   return updateSession(sessionId, psychologistId, data, false);
 };
 
-// Duplicar sessão
 export const duplicateSession = async (sessionId, psychologistId) => {
   try {
-    const original = await getDoc(doc(db, COLLECTION, sessionId));
-    if (!original.exists()) throw new Error('Sessão não encontrada');
-    const data = original.data();
-    const { id, createdAt, updatedAt, ...rest } = data;
+    const original = await getSessionById(sessionId);
+    if (!original) throw new Error('Sessão não encontrada');
+    const { id, createdAt, updatedAt, ...rest } = original;
     const newData = {
       ...rest,
-      sessionNumber: data.sessionNumber + 1,
-      date: new Date(), // data atual
+      sessionNumber: (rest.sessionNumber || 0) + 1,
+      date: new Date(),
       status: 'scheduled',
       version: 1,
       previousVersions: [],
@@ -133,7 +129,6 @@ export const duplicateSession = async (sessionId, psychologistId) => {
       updatedAt: serverTimestamp()
     };
     const docRef = await addDoc(collection(db, COLLECTION), newData);
-    
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -142,7 +137,6 @@ export const duplicateSession = async (sessionId, psychologistId) => {
       targetId: docRef.id,
       details: { originalId: sessionId }
     });
-    
     return { id: docRef.id, ...newData };
   } catch (error) {
     console.error('Erro ao duplicar sessão:', error);
@@ -150,15 +144,10 @@ export const duplicateSession = async (sessionId, psychologistId) => {
   }
 };
 
-// Arquivar sessão
 export const archiveSession = async (sessionId, psychologistId) => {
   try {
     const docRef = doc(db, COLLECTION, sessionId);
-    await updateDoc(docRef, {
-      status: 'archived',
-      updatedAt: serverTimestamp()
-    });
-    
+    await updateDoc(docRef, { status: 'archived', updatedAt: serverTimestamp() });
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -172,15 +161,10 @@ export const archiveSession = async (sessionId, psychologistId) => {
   }
 };
 
-// Restaurar sessão
 export const restoreSession = async (sessionId, psychologistId) => {
   try {
     const docRef = doc(db, COLLECTION, sessionId);
-    await updateDoc(docRef, {
-      status: 'scheduled',
-      updatedAt: serverTimestamp()
-    });
-    
+    await updateDoc(docRef, { status: 'scheduled', updatedAt: serverTimestamp() });
     await addActivity({
       psychologistId,
       user: psychologistId,
