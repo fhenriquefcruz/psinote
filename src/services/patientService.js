@@ -20,7 +20,7 @@ export const createPatient = async (psychologistId, data) => {
       updatedAt: serverTimestamp(),
       createdBy: psychologistId,
       updatedBy: psychologistId,
-      anamnesis: {
+      anamnesis: data.anamnesis || {
         chiefComplaint: '',
         familyHistory: '',
         medicalHistory: '',
@@ -45,7 +45,7 @@ export const createPatient = async (psychologistId, data) => {
   }
 };
 
-// Buscar pacientes do psicólogo
+// Buscar pacientes do psicólogo (com filtro de status)
 export const getPatients = async (psychologistId, status = 'active') => {
   try {
     const q = query(
@@ -150,7 +150,7 @@ export const restorePatient = async (patientId, psychologistId) => {
   }
 };
 
-// Excluir permanentemente (lixeira)
+// Excluir permanentemente (vai para lixeira)
 export const deletePatient = async (patientId, psychologistId) => {
   try {
     const docRef = doc(db, COLLECTION, patientId);
@@ -230,5 +230,28 @@ export const searchPatients = async (psychologistId, searchTerm) => {
   } catch (error) {
     console.error('Erro na busca de pacientes:', error);
     throw error;
+  }
+};
+
+// Buscar pacientes na lixeira (com expiração de 30 dias)
+export const getTrashPatients = async (psychologistId) => {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const q = query(
+      collection(db, COLLECTION),
+      where('psychologistId', '==', psychologistId),
+      where('status', '==', 'deleted'),
+      where('deletedAt', '>=', thirtyDaysAgo)
+    );
+    const querySnapshot = await getDocs(q);
+    const patients = [];
+    querySnapshot.forEach((doc) => {
+      patients.push({ id: doc.id, ...doc.data() });
+    });
+    return patients;
+  } catch (error) {
+    console.error('Erro ao buscar lixeira:', error);
+    return [];
   }
 };
