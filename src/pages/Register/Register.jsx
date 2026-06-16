@@ -1,36 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { getPatients } from '../../services/patientService';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
+export default function Register() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
-export default function Patients() {
-  const { user } = useAuth();
-  const [patients, setPatients] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const load = async () => {
-      const list = await getPatients(user.uid);
-      setPatients(list);
-      setLoading(false);
-    };
-    load();
-  }, [user]);
-
-  if (loading) return <div>Carregando...</div>;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await register(name, email, password);
+      toast.success('Conta criada com sucesso!');
+      navigate('/dashboard');
+    } catch (error) {
+      toast.error('Erro ao criar conta: ' + error.message);
+    }
+  };
 
   return (
-    <div className={styles.container}>
-      <h1>Pacientes</h1>
-      <Link to="/patients/new" className={styles.btnNew}>+ Novo Paciente</Link>
-      <ul className={styles.list}>
-        {patients.map(p => (
-          <li key={p.id}>
-            <Link to={`/patients/${p.id}`}>{p.name}</Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <form onSubmit={handleSubmit}>
+      <input type="text" placeholder="Nome" value={name} onChange={(e) => setName(e.target.value)} required />
+      <input type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      <input type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} required />
+      <button type="submit">Cadastrar</button>
+      <Link to="/login">Já tenho conta</Link>
+    </form>
   );
 }
