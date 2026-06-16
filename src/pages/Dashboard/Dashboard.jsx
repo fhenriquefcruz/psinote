@@ -19,6 +19,7 @@ export default function Dashboard() {
     nextAppointments: []
   });
   const [activities, setActivities] = useState([]);
+  const [moodData, setMoodData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,23 +30,23 @@ export default function Dashboard() {
         const patients = await getPatients(user.uid);
         const active = patients.filter(p => p.status === 'active');
         const archived = patients.filter(p => p.status === 'archived');
-        
+
         const allSessions = [];
         for (const patient of active) {
           const sessions = await getSessionsByPatient(patient.id, user.uid);
           allSessions.push(...sessions);
         }
-        
+
         const now = new Date();
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const yearStart = new Date(now.getFullYear(), 0, 1);
-        
+
         const sessionsThisMonth = allSessions.filter(s => s.date?.toDate() >= monthStart);
         const sessionsThisYear = allSessions.filter(s => s.date?.toDate() >= yearStart);
-        
+
         const appointments = await getAppointments(user.uid, new Date());
         const nextAppointments = appointments.filter(a => a.status === 'scheduled').slice(0, 5);
-        
+
         setStats({
           totalPatients: patients.length,
           activePatients: active.length,
@@ -54,7 +55,18 @@ export default function Dashboard() {
           sessionsThisYear: sessionsThisYear.length,
           nextAppointments
         });
-        
+
+        // Dados para gráfico de evolução do humor
+        const moodTrend = allSessions
+          .filter(s => s.scales?.mood !== undefined)
+          .sort((a, b) => a.date?.toDate() - b.date?.toDate())
+          .slice(-10)
+          .map(s => ({
+            date: s.date?.toDate().toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }),
+            humor: s.scales?.mood || 0
+          }));
+        setMoodData(moodTrend);
+
         const recentActivities = await getRecentActivities(user.uid, 10);
         setActivities(recentActivities);
       } catch (error) {
@@ -63,20 +75,113 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
-    
+
     loadDashboardData();
   }, [user]);
 
-  if (loading) return <div>Carregando dashboard...</div>;
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📊</div>
+          <p style={{ color: 'var(--text-muted)' }}>Carregando dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '1rem' }}>
-      <h1>Dashboard</h1>
-      <StatsCards stats={stats} />
-      <div style={{ marginTop: '2rem' }}>
-        <Charts />
+    <div style={{ padding: '1.5rem' }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: '2rem'
+      }}>
+        <div>
+          <h1 style={{ margin: 0 }}>Dashboard</h1>
+          <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
+            Visão geral da sua prática clínica
+          </p>
+        </div>
+        <div style={{
+          background: 'var(--bg-tertiary)',
+          padding: '0.3rem 0.8rem',
+          borderRadius: '20px',
+          fontSize: '0.75rem',
+          color: 'var(--text-secondary)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.4rem'
+        }}>
+          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} />
+          Online
+        </div>
       </div>
-      <div style={{ marginTop: '2rem' }}>
+
+      <StatsCards stats={stats} />
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '2fr 1fr',
+        gap: '1.5rem',
+        marginTop: '1.5rem'
+      }}>
+        <div style={{
+          background: 'var(--bg-primary)',
+          padding: '1.5rem',
+          borderRadius: 'var(--radius)',
+          boxShadow: 'var(--shadow-sm)',
+          border: '1px solid var(--border-color)'
+        }}>
+          <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            📈 Evolução do Humor
+          </h3>
+          {moodData.length > 0 ? (
+            <Charts data={moodData} />
+          ) : (
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>
+              Nenhum dado de humor registrado ainda
+            </p>
+          )}
+        </div>
+
+        <div style={{
+          background: 'var(--bg-primary)',
+          padding: '1.5rem',
+          borderRadius: 'var(--radius)',
+          boxShadow: 'var(--shadow-sm)',
+          border: '1px solid var(--border-color)'
+        }}>
+          <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            📅 Próximas Consultas
+          </h3>
+          {stats.nextAppointments.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>
+              Nenhuma consulta agendada
+            </p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {stats.nextAppointments.map((a, index) => (
+                <li
+                  key={a.id}
+                  style={{
+                    padding: '0.6rem 0',
+                    borderBottom: index < stats.nextAppointments.length - 1 ? '1px solid var(--border-color)' : 'none'
+                  }}
+                >
+                  <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{a.patientName}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {a.date?.toDate().toLocaleDateString('pt-BR')} • {a.time}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginTop: '1.5rem' }}>
         <RecentActivities activities={activities} />
       </div>
     </div>
