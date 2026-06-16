@@ -7,15 +7,31 @@ export default function PatientProfile() {
   const { id } = useParams();
   const { user } = useAuth();
   const [patient, setPatient] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const data = await getPatientById(id);
-      setPatient(data);
+      try {
+        const data = await getPatientById(id);
+        setPatient(data);
+      } catch (error) {
+        console.error('Erro ao carregar paciente:', error);
+      } finally {
+        setLoading(false);
+      }
     };
-    load();
+    if (id) load();
   }, [id]);
 
-  if (!patient) return <div>Carregando...</div>;
-  return <div><h1>{patient.name}</h1><p>{patient.phone}</p></div>;
+  if (loading) return <div>Carregando...</div>;
+  if (!patient) return <div>Paciente não encontrado</div>;
+
+  return (
+    <div>
+      <h1>{patient.name}</h1>
+      <p>Telefone: {patient.phone || 'Não informado'}</p>
+      <p>Email: {patient.email || 'Não informado'}</p>
+      {/* Adicione mais campos conforme necessário */}
+    </div>
+  );
 }
