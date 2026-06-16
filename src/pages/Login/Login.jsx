@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import styles from './Login.module.css';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -21,12 +20,31 @@ export default function Login() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className={styles.form}>
-      <input type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required />
-      <input type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} required />
-      <button type="submit">Entrar</button>
-      <Link to="/register">Criar conta</Link>
-      <Link to="/forgot-password">Esqueci a senha</Link>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+      <input
+        type="email"
+        placeholder="E-mail"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+        style={{ padding: '0.6rem', border: '1px solid #ccc', borderRadius: '6px' }}
+      />
+      <input
+        type="password"
+        placeholder="Senha"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+        style={{ padding: '0.6rem', border: '1px solid #ccc', borderRadius: '6px' }}
+      />
+      <button
+        type="submit"
+        style={{ padding: '0.6rem', background: '#4F46E5', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+      >
+        Entrar
+      </button>
+      <Link to="/register" style={{ textAlign: 'center', color: '#4F46E5' }}>Criar conta</Link>
+      <Link to="/forgot-password" style={{ textAlign: 'center', color: '#4F46E5' }}>Esqueci a senha</Link>
     </form>
   );
 }
