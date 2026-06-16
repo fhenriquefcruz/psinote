@@ -19,10 +19,9 @@ import Documents from '../pages/Documents/Documents';
 import Reports from '../pages/Reports/Reports';
 import Settings from '../pages/Settings/Settings';
 
-// Componente para proteger rotas privadas
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  if (loading) return <div>Carregando...</div>;
+  if (loading) return <div style={{ textAlign: 'center', padding: '3rem' }}>Carregando...</div>;
   return user ? children : <Navigate to="/login" />;
 };
 
@@ -30,41 +29,23 @@ export default function AppRoutes() {
   return (
     <BrowserRouter basename="/psinote">
       <Routes>
-        {/* Rotas públicas (sem autenticação) */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
         </Route>
 
-        {/* Rotas privadas (com autenticação) */}
         <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
-          {/* Redirecionamento padrão */}
           <Route path="/" element={<Navigate to="/dashboard" />} />
-
-          {/* Dashboard */}
           <Route path="/dashboard" element={<Dashboard />} />
-
-          {/* Pacientes */}
           <Route path="/patients" element={<Patients />} />
           <Route path="/patients/new" element={<PatientForm />} />
           <Route path="/patients/edit/:id" element={<PatientForm />} />
           <Route path="/patients/:id" element={<PatientProfile />} />
-
-          {/* Sessões */}
           <Route path="/sessions" element={<Sessions />} />
-          {/* Futuro: /sessions/new, /sessions/:id/edit, etc. */}
-
-          {/* Agenda */}
           <Route path="/agenda" element={<Agenda />} />
-
-          {/* Documentos */}
           <Route path="/documents" element={<Documents />} />
-
-          {/* Relatórios */}
           <Route path="/reports" element={<Reports />} />
-
-          {/* Configurações */}
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
