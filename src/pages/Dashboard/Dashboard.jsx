@@ -7,6 +7,7 @@ import { getRecentActivities } from '../../services/activityService';
 import StatsCards from '../../components/dashboard/StatsCards';
 import Charts from '../../components/dashboard/Charts';
 import RecentActivities from '../../components/dashboard/RecentActivities';
+import IndexWarning from '../../components/common/IndexWarning/IndexWarning';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -31,7 +32,6 @@ export default function Dashboard() {
         const active = patients.filter(p => p.status === 'active');
         const archived = patients.filter(p => p.status === 'archived');
 
-        // Buscar sessões de todos os pacientes ativos
         let allSessions = [];
         for (const patient of active) {
           const sessions = await getSessionsByPatient(patient.id, user.uid);
@@ -42,8 +42,14 @@ export default function Dashboard() {
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const yearStart = new Date(now.getFullYear(), 0, 1);
 
-        const sessionsThisMonth = allSessions.filter(s => s.date?.toDate() >= monthStart);
-        const sessionsThisYear = allSessions.filter(s => s.date?.toDate() >= yearStart);
+        const sessionsThisMonth = allSessions.filter(s => {
+          const d = s.date?.toDate ? s.date.toDate() : new Date(s.date);
+          return d >= monthStart;
+        });
+        const sessionsThisYear = allSessions.filter(s => {
+          const d = s.date?.toDate ? s.date.toDate() : new Date(s.date);
+          return d >= yearStart;
+        });
 
         const appointments = await getAppointments(user.uid, new Date());
         const nextAppointments = appointments.filter(a => a.status === 'scheduled' || a.status === 'confirmed').slice(0, 5);
@@ -57,15 +63,22 @@ export default function Dashboard() {
           nextAppointments
         });
 
-        // Dados para gráfico de evolução do humor
+        // Dados para gráfico – CORRIGIDO
         const moodTrend = allSessions
           .filter(s => s.scales?.mood !== undefined)
-          .sort((a, b) => a.date?.toDate() - b.date?.toDate())
+          .sort((a, b) => {
+            const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+            const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+            return dateA - dateB;
+          })
           .slice(-10)
-          .map(s => ({
-            date: s.date?.toDate().toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }),
-            humor: s.scales?.mood || 0
-          }));
+          .map(s => {
+            const date = s.date?.toDate ? s.date.toDate() : new Date(s.date);
+            return {
+              date: date.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }),
+              humor: s.scales?.mood || 0
+            };
+          });
         setMoodData(moodTrend);
 
         const recentActivities = await getRecentActivities(user.uid, 10);
@@ -85,6 +98,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: '1.5rem' }}>
+      <IndexWarning />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0 }}>Dashboard</h1>
