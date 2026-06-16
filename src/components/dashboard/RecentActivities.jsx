@@ -17,6 +17,13 @@ export default function RecentActivities({ activities }) {
     );
   }
 
+  // Ordenar por timestamp (mais recente primeiro)
+  const sorted = [...activities].sort((a, b) => {
+    const dateA = new Date(a.timestamp);
+    const dateB = new Date(b.timestamp);
+    return dateB - dateA;
+  });
+
   return (
     <div style={{
       background: 'var(--bg-primary)',
@@ -28,7 +35,7 @@ export default function RecentActivities({ activities }) {
         🕐 Atividades Recentes
       </h3>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-        {activities.map((a, index) => (
+        {sorted.map((a, index) => (
           <li
             key={a.id}
             style={{
@@ -36,13 +43,18 @@ export default function RecentActivities({ activities }) {
               justifyContent: 'space-between',
               alignItems: 'center',
               padding: '0.5rem 0',
-              borderBottom: index < activities.length - 1 ? '1px solid var(--border-color)' : 'none',
+              borderBottom: index < sorted.length - 1 ? '1px solid var(--border-color)' : 'none',
               fontSize: '0.875rem'
             }}
           >
             <span style={{ color: 'var(--text-primary)' }}>{a.action}</span>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              {new Date(a.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              {a.timestamp ? new Date(a.timestamp).toLocaleDateString('pt-BR', { 
+                day: '2-digit', 
+                month: 'short', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              }) : ''}
             </span>
           </li>
         ))}
