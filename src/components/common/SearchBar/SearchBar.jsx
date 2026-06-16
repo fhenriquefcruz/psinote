@@ -47,17 +47,14 @@ export default function SearchBar() {
   const handleSelect = (type, id) => {
     setIsOpen(false);
     setQuery('');
-    if (type === 'patient') {
-      navigate(`/patients/${id}`);
-    } else if (type === 'session') {
-      navigate(`/sessions/${id}`);
-    }
+    if (type === 'patient') navigate(`/patients/${id}`);
+    else if (type === 'session') navigate(`/sessions/${id}`);
   };
 
   const totalResults = results.patients.length + results.sessions.length + results.documents.length;
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', width: '320px' }}>
+    <div ref={wrapperRef} style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -81,19 +78,16 @@ export default function SearchBar() {
             outline: 'none',
             flex: 1,
             fontSize: '0.875rem',
-            color: 'var(--text-primary)'
+            color: 'var(--text-primary)',
+            width: '100%'
           }}
         />
         {query && (
-          <button
-            onClick={() => setQuery('')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-          >
+          <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
             <X size={16} />
           </button>
         )}
       </div>
-
       {isOpen && (totalResults > 0 || loading) && (
         <div style={{
           position: 'absolute',
@@ -110,9 +104,7 @@ export default function SearchBar() {
           padding: '0.5rem 0'
         }}>
           {loading ? (
-            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Buscando...
-            </div>
+            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>Buscando...</div>
           ) : (
             <>
               {results.patients.length > 0 && (
@@ -121,22 +113,11 @@ export default function SearchBar() {
                     <Users size={12} style={{ display: 'inline', marginRight: '0.3rem' }} /> Pacientes
                   </div>
                   {results.patients.map(p => (
-                    <div
-                      key={p.id}
-                      onClick={() => handleSelect('patient', p.id)}
-                      style={{
-                        padding: '0.4rem 0.8rem',
-                        cursor: 'pointer',
-                        transition: 'var(--transition)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}
+                    <div key={p.id} onClick={() => handleSelect('patient', p.id)} style={{ padding: '0.4rem 0.8rem', cursor: 'pointer', transition: 'var(--transition)' }}
                       onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                       <span style={{ color: 'var(--text-primary)' }}>{p.name}</span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.email || p.phone}</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>{p.email || p.phone}</span>
                     </div>
                   ))}
                 </div>
@@ -147,17 +128,9 @@ export default function SearchBar() {
                     <Calendar size={12} style={{ display: 'inline', marginRight: '0.3rem' }} /> Sessões
                   </div>
                   {results.sessions.map(s => (
-                    <div
-                      key={s.id}
-                      onClick={() => handleSelect('session', s.id)}
-                      style={{
-                        padding: '0.4rem 0.8rem',
-                        cursor: 'pointer',
-                        transition: 'var(--transition)'
-                      }}
+                    <div key={s.id} onClick={() => handleSelect('session', s.id)} style={{ padding: '0.4rem 0.8rem', cursor: 'pointer', transition: 'var(--transition)' }}
                       onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                       <span style={{ color: 'var(--text-primary)' }}>{s.mainTheme || 'Sessão'}</span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
                         {s.date?.toDate?.()?.toLocaleDateString('pt-BR') || ''}
@@ -172,17 +145,9 @@ export default function SearchBar() {
                     <FileText size={12} style={{ display: 'inline', marginRight: '0.3rem' }} /> Documentos
                   </div>
                   {results.documents.map(d => (
-                    <div
-                      key={d.id}
-                      style={{
-                        padding: '0.4rem 0.8rem',
-                        cursor: 'pointer',
-                        transition: 'var(--transition)'
-                      }}
-                      onClick={() => window.open(d.fileURL, '_blank')}
+                    <div key={d.id} onClick={() => window.open(d.fileURL, '_blank')} style={{ padding: '0.4rem 0.8rem', cursor: 'pointer', transition: 'var(--transition)' }}
                       onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                       <span style={{ color: 'var(--text-primary)' }}>{d.name}</span>
                     </div>
                   ))}
