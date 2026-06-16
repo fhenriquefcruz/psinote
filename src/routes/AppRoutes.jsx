@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import MainLayout from '../layouts/MainLayout/MainLayout';
 import AuthLayout from '../layouts/AuthLayout/AuthLayout';
