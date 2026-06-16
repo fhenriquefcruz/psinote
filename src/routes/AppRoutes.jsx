@@ -48,6 +48,7 @@ export default function AppRoutes() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/patients/new" element={<PatientForm />} />
+          <Route path="/patients/edit/:id" element={<PatientForm />} />
         </Route>
       </Routes>
     </BrowserRouter>
