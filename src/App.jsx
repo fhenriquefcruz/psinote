@@ -1,16 +1,18 @@
-// App
-import { AuthProvider } from './contexts/AuthContext'
-import { ToastContainer } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
-import AppRoutes from './routes/AppRoutes'
+import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import AppRoutes from './routes/AppRoutes';
 
 function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-      <ToastContainer position="bottom-right" />
-    </AuthProvider>
-  )
+    <ThemeProvider>
+      <AuthProvider>
+        <AppRoutes />
+        <ToastContainer position="bottom-right" theme="colored" />
+      </AuthProvider>
+    </ThemeProvider>
+  );
 }
 
-export default App
+export default App;
