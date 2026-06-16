@@ -4,7 +4,7 @@ import { getAppointments, createAppointment, updateAppointmentStatus, deleteAppo
 import { getPatients } from '../../services/patientService';
 import { toast } from 'react-toastify';
 import { Plus, X, Check, Calendar as CalendarIcon, Clock as ClockIcon, Search } from 'lucide-react';
-import { parseDate, formatDateSafe, formatDateTimeSafe } from '../../utils/helpers';
+import { parseDate } from '../../utils/helpers';
 
 export default function Agenda() {
   const { user } = useAuth();
@@ -175,7 +175,6 @@ export default function Agenda() {
         </button>
       </div>
 
-      {/* Formulário de criação */}
       {showForm && (
         <div style={{ background: 'var(--bg-primary)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', marginBottom: '1.5rem', boxShadow: 'var(--shadow-md)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -213,7 +212,6 @@ export default function Agenda() {
         </div>
       )}
 
-      {/* Filtros */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
         {['all', 'scheduled', 'confirmed', 'done', 'canceled', 'missed'].map(status => (
           <button key={status} onClick={() => setFilter(status)} style={{ padding: '0.3rem 0.8rem', borderRadius: '20px', border: filter === status ? '2px solid var(--primary)' : '1px solid var(--border-color)', background: filter === status ? 'var(--primary-light)' : 'transparent', color: filter === status ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: filter === status ? 600 : 400 }}>
@@ -228,7 +226,6 @@ export default function Agenda() {
         </select>
       </div>
 
-      {/* Lista de consultas */}
       <div style={{ display: 'grid', gap: '0.5rem' }}>
         {filteredAppointments.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Nenhuma consulta encontrada</div>
@@ -277,7 +274,6 @@ export default function Agenda() {
         )}
       </div>
 
-      {/* Modal de reagendamento */}
       {rescheduleData && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: 'var(--bg-primary)', padding: '2rem', borderRadius: 'var(--radius)', maxWidth: '400px', width: '100%', boxShadow: 'var(--shadow-xl)' }}>
