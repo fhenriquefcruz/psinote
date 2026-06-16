@@ -1,6 +1,5 @@
-// src/pages/Dashboard/Dashboard.jsx
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { getPatients } from '../../services/patientService';
 import { getSessionsByPatient } from '../../services/sessionService';
 import { getAppointments } from '../../services/appointmentService';
@@ -8,7 +7,6 @@ import { getRecentActivities } from '../../services/activityService';
 import StatsCards from '../../components/dashboard/StatsCards';
 import Charts from '../../components/dashboard/Charts';
 import RecentActivities from '../../components/dashboard/RecentActivities';
-import styles from './Dashboard.module.css';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -28,12 +26,10 @@ export default function Dashboard() {
       if (!user) return;
       try {
         setLoading(true);
-        // Buscar pacientes
         const patients = await getPatients(user.uid);
         const active = patients.filter(p => p.status === 'active');
         const archived = patients.filter(p => p.status === 'archived');
         
-        // Buscar sessões (exemplo simplificado)
         const allSessions = [];
         for (const patient of active) {
           const sessions = await getSessionsByPatient(patient.id, user.uid);
@@ -47,7 +43,6 @@ export default function Dashboard() {
         const sessionsThisMonth = allSessions.filter(s => s.date?.toDate() >= monthStart);
         const sessionsThisYear = allSessions.filter(s => s.date?.toDate() >= yearStart);
         
-        // Próximas consultas
         const appointments = await getAppointments(user.uid, new Date());
         const nextAppointments = appointments.filter(a => a.status === 'scheduled').slice(0, 5);
         
@@ -60,7 +55,6 @@ export default function Dashboard() {
           nextAppointments
         });
         
-        // Atividades recentes
         const recentActivities = await getRecentActivities(user.uid, 10);
         setActivities(recentActivities);
       } catch (error) {
@@ -76,13 +70,13 @@ export default function Dashboard() {
   if (loading) return <div>Carregando dashboard...</div>;
 
   return (
-    <div className={styles.dashboard}>
+    <div style={{ padding: '1rem' }}>
       <h1>Dashboard</h1>
       <StatsCards stats={stats} />
-      <div className={styles.chartsRow}>
-        <Charts sessions={stats.sessionsThisMonth} patients={stats.activePatients} />
+      <div style={{ marginTop: '2rem' }}>
+        <Charts />
       </div>
-      <div className={styles.activitiesRow}>
+      <div style={{ marginTop: '2rem' }}>
         <RecentActivities activities={activities} />
       </div>
     </div>
