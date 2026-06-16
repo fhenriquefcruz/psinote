@@ -13,7 +13,6 @@ import {
   setDoc
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { v4 as uuidv4 } from 'uuid';
 import { addActivity } from './activityService';
 
 const COLLECTION = 'patients';
