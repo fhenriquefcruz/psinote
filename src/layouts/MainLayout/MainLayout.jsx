@@ -1,15 +1,14 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../../components/navigation/Sidebar/Sidebar';
 import Header from '../../components/navigation/Header/Header';
-import styles from './MainLayout.module.css';
 
 export default function MainLayout() {
   return (
-    <div className={styles.layout}>
+    <div style={{ display: 'flex', height: '100vh' }}>
       <Sidebar />
-      <div className={styles.main}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <Header />
-        <div className={styles.content}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: 'var(--bg-secondary, #f1f5f9)' }}>
           <Outlet />
         </div>
       </div>
