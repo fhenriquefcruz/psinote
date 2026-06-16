@@ -13,6 +13,7 @@ export const createAppointment = async (psychologistId, data) => {
       ...data,
       psychologistId,
       status: 'scheduled',
+      cancelReason: '',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -53,16 +54,21 @@ export const getAppointments = async (psychologistId, startDate, endDate) => {
   }
 };
 
-export const updateAppointmentStatus = async (appointmentId, psychologistId, status) => {
+export const updateAppointmentStatus = async (appointmentId, psychologistId, status, cancelReason = '') => {
   try {
     const docRef = doc(db, COLLECTION, appointmentId);
-    await updateDoc(docRef, { status, updatedAt: serverTimestamp() });
+    const updateData = { status, updatedAt: serverTimestamp() };
+    if (status === 'canceled' && cancelReason) {
+      updateData.cancelReason = cancelReason;
+    }
+    await updateDoc(docRef, updateData);
     await addActivity({
       psychologistId,
       user: psychologistId,
       action: `Consulta ${status}`,
       target: 'appointment',
-      targetId: appointmentId
+      targetId: appointmentId,
+      details: { status, cancelReason }
     });
     return true;
   } catch (error) {
