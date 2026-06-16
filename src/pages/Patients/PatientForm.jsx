@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { createPatient, updatePatient, getPatientById } from '../../services/patientService';
 import { toast } from 'react-toastify';
+import Tooltip from '../../components/common/Tooltip/Tooltip';
 
 export default function PatientForm() {
   const { id } = useParams();
@@ -11,7 +12,6 @@ export default function PatientForm() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    phone: '',
     whatsapp: '',
     email: '',
     cpf: '',
@@ -39,7 +39,6 @@ export default function PatientForm() {
         if (data) {
           setFormData({
             name: data.name || '',
-            phone: data.phone || '',
             whatsapp: data.whatsapp || '',
             email: data.email || '',
             cpf: data.cpf || '',
@@ -80,6 +79,11 @@ export default function PatientForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Validações básicas
+    if (!formData.name.trim()) return toast.error('Nome é obrigatório');
+    if (!formData.whatsapp.trim()) return toast.error('WhatsApp é obrigatório');
+    if (!formData.birthDate) return toast.error('Data de nascimento é obrigatória');
+
     setLoading(true);
     try {
       if (id) {
@@ -97,59 +101,124 @@ export default function PatientForm() {
     }
   };
 
+  const inputStyle = {
+    width: '100%',
+    padding: '0.5rem',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--border-color)',
+    background: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
+    fontSize: '0.875rem',
+    transition: 'var(--transition)'
+  };
+
+  const labelStyle = {
+    fontSize: '0.8rem',
+    fontWeight: 500,
+    color: 'var(--text-secondary)',
+    display: 'block',
+    marginBottom: '0.3rem'
+  };
+
   return (
-    <div style={{ maxWidth: '700px', margin: '0 auto', padding: '1rem' }}>
-      <h1>{id ? 'Editar Paciente' : 'Novo Paciente'}</h1>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-        <input name="name" placeholder="Nome completo*" value={formData.name} onChange={handleChange} required style={inputStyle} />
-        <input name="phone" placeholder="Telefone" value={formData.phone} onChange={handleChange} style={inputStyle} />
-        <input name="whatsapp" placeholder="WhatsApp" value={formData.whatsapp} onChange={handleChange} style={inputStyle} />
-        <input name="email" type="email" placeholder="E-mail" value={formData.email} onChange={handleChange} style={inputStyle} />
-        <input name="cpf" placeholder="CPF (opcional)" value={formData.cpf} onChange={handleChange} style={inputStyle} />
-        <input name="birthDate" type="date" value={formData.birthDate} onChange={handleChange} style={inputStyle} />
-        <select name="gender" value={formData.gender} onChange={handleChange} style={inputStyle}>
-          <option value="">Gênero</option>
-          <option value="masculino">Masculino</option>
-          <option value="feminino">Feminino</option>
-          <option value="outro">Outro</option>
-        </select>
-        <input name="maritalStatus" placeholder="Estado civil" value={formData.maritalStatus} onChange={handleChange} style={inputStyle} />
-        <input name="profession" placeholder="Profissão" value={formData.profession} onChange={handleChange} style={inputStyle} />
-        <textarea name="address" placeholder="Endereço" value={formData.address} onChange={handleChange} rows="2" style={inputStyle} />
-        <input name="emergencyContact" placeholder="Contato de emergência" value={formData.emergencyContact} onChange={handleChange} style={inputStyle} />
-        <textarea name="observations" placeholder="Observações gerais" value={formData.observations} onChange={handleChange} rows="3" style={inputStyle} />
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '1.5rem' }}>
+      <h1 style={{ marginBottom: '1.5rem' }}>{id ? 'Editar Paciente' : 'Novo Paciente'}</h1>
+      <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        {/* Nome - obrigatório */}
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={labelStyle}>Nome completo <span style={{ color: 'var(--danger)' }}>*</span></label>
+          <input name="name" value={formData.name} onChange={handleChange} required style={inputStyle} />
+        </div>
 
-        <h3>Anamnese</h3>
-        <textarea name="anamnesis.chiefComplaint" placeholder="Queixa principal" value={formData.anamnesis.chiefComplaint} onChange={handleChange} rows="2" style={inputStyle} />
-        <textarea name="anamnesis.familyHistory" placeholder="Histórico familiar" value={formData.anamnesis.familyHistory} onChange={handleChange} rows="2" style={inputStyle} />
-        <textarea name="anamnesis.medicalHistory" placeholder="Histórico médico" value={formData.anamnesis.medicalHistory} onChange={handleChange} rows="2" style={inputStyle} />
-        <input name="anamnesis.medications" placeholder="Uso de medicamentos" value={formData.anamnesis.medications} onChange={handleChange} style={inputStyle} />
-        <textarea name="anamnesis.therapeuticGoals" placeholder="Objetivos terapêuticos" value={formData.anamnesis.therapeuticGoals} onChange={handleChange} rows="2" style={inputStyle} />
-        <textarea name="anamnesis.initialObservations" placeholder="Observações iniciais" value={formData.anamnesis.initialObservations} onChange={handleChange} rows="2" style={inputStyle} />
+        {/* WhatsApp - obrigatório */}
+        <div>
+          <label style={labelStyle}>WhatsApp <span style={{ color: 'var(--danger)' }}>*</span></label>
+          <input name="whatsapp" value={formData.whatsapp} onChange={handleChange} placeholder="(00) 00000-0000" required style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>Email</label>
+          <input name="email" type="email" value={formData.email} onChange={handleChange} style={inputStyle} />
+        </div>
 
-        <button type="submit" disabled={loading} style={buttonStyle}>
+        {/* CPF - validação simples */}
+        <div>
+          <label style={labelStyle}>CPF (opcional)</label>
+          <input name="cpf" value={formData.cpf} onChange={handleChange} placeholder="000.000.000-00" maxLength="14" style={inputStyle}
+            onInput={(e) => e.target.value = e.target.value.replace(/\D/g, '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')} />
+        </div>
+        <div>
+          <label style={labelStyle}>Data de nascimento <span style={{ color: 'var(--danger)' }}>*</span></label>
+          <input name="birthDate" type="date" value={formData.birthDate} onChange={handleChange} required style={inputStyle} />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Gênero</label>
+          <select name="gender" value={formData.gender} onChange={handleChange} style={inputStyle}>
+            <option value="">Selecione</option>
+            <option value="masculino">Masculino</option>
+            <option value="feminino">Feminino</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Estado civil</label>
+          <input name="maritalStatus" value={formData.maritalStatus} onChange={handleChange} style={inputStyle} />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Profissão</label>
+          <input name="profession" value={formData.profession} onChange={handleChange} style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>Contato de emergência</label>
+          <input name="emergencyContact" value={formData.emergencyContact} onChange={handleChange} style={inputStyle} />
+        </div>
+
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={labelStyle}>Endereço</label>
+          <textarea name="address" value={formData.address} onChange={handleChange} rows="2" style={inputStyle} />
+        </div>
+
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={labelStyle}>Observações</label>
+          <textarea name="observations" value={formData.observations} onChange={handleChange} rows="3" style={inputStyle} />
+        </div>
+
+        {/* Anamnese */}
+        <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+          <h3 style={{ margin: '0 0 1rem 0' }}>Anamnese</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Queixa principal <Tooltip text="Descreva o motivo principal que trouxe o paciente à terapia" /></label>
+              <textarea name="anamnesis.chiefComplaint" value={formData.anamnesis.chiefComplaint} onChange={handleChange} rows="2" style={inputStyle} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Histórico familiar</label>
+              <textarea name="anamnesis.familyHistory" value={formData.anamnesis.familyHistory} onChange={handleChange} rows="2" style={inputStyle} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Histórico médico</label>
+              <textarea name="anamnesis.medicalHistory" value={formData.anamnesis.medicalHistory} onChange={handleChange} rows="2" style={inputStyle} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Uso de medicamentos</label>
+              <input name="anamnesis.medications" value={formData.anamnesis.medications} onChange={handleChange} style={inputStyle} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Objetivos terapêuticos</label>
+              <textarea name="anamnesis.therapeuticGoals" value={formData.anamnesis.therapeuticGoals} onChange={handleChange} rows="2" style={inputStyle} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Observações iniciais</label>
+              <textarea name="anamnesis.initialObservations" value={formData.anamnesis.initialObservations} onChange={handleChange} rows="2" style={inputStyle} />
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" disabled={loading} style={{ gridColumn: '1 / -1', padding: '0.7rem', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '1rem', opacity: loading ? 0.7 : 1, transition: 'var(--transition)' }}>
           {loading ? 'Salvando...' : (id ? 'Atualizar' : 'Cadastrar')}
         </button>
       </form>
     </div>
   );
 }
-
-const inputStyle = {
-  padding: '0.5rem',
-  borderRadius: '6px',
-  border: '1px solid #e2e8f0',
-  fontSize: '1rem',
-  width: '100%',
-  boxSizing: 'border-box'
-};
-
-const buttonStyle = {
-  padding: '0.6rem',
-  background: '#4F46E5',
-  color: '#fff',
-  border: 'none',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  fontSize: '1rem'
-};
