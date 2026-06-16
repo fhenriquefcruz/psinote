@@ -1,3 +1,3 @@
 export default function Sessions() {
-  return <div>Sessões (em breve)</div>;
+  return <div style={{ padding: '1rem' }}>Sessões (em breve)</div>;
 }
