@@ -1,16 +1,6 @@
 import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  getDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
-  where, 
-  orderBy, 
-  serverTimestamp,
-  setDoc
+  collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, 
+  query, where, orderBy, serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { addActivity } from './activityService';
@@ -30,8 +20,7 @@ export const createPatient = async (psychologistId, data) => {
       updatedAt: serverTimestamp(),
       createdBy: psychologistId,
       updatedBy: psychologistId,
-      // Inicializar anamnese vazia se não fornecida
-      anamnesis: data.anamnesis || {
+      anamnesis: {
         chiefComplaint: '',
         familyHistory: '',
         medicalHistory: '',
@@ -40,10 +29,7 @@ export const createPatient = async (psychologistId, data) => {
         initialObservations: ''
       }
     };
-    
     const docRef = await addDoc(collection(db, COLLECTION), patientData);
-    
-    // Registrar atividade
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -52,7 +38,6 @@ export const createPatient = async (psychologistId, data) => {
       targetId: docRef.id,
       details: { name: data.name }
     });
-    
     return { id: docRef.id, ...patientData };
   } catch (error) {
     console.error('Erro ao criar paciente:', error);
@@ -106,7 +91,6 @@ export const updatePatient = async (patientId, psychologistId, data) => {
       updatedBy: psychologistId
     };
     await updateDoc(docRef, updateData);
-    
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -115,7 +99,6 @@ export const updatePatient = async (patientId, psychologistId, data) => {
       targetId: patientId,
       details: { name: data.name || 'Paciente' }
     });
-    
     return { id: patientId, ...updateData };
   } catch (error) {
     console.error('Erro ao atualizar paciente:', error);
@@ -132,7 +115,6 @@ export const archivePatient = async (patientId, psychologistId) => {
       updatedAt: serverTimestamp(),
       updatedBy: psychologistId
     });
-    
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -155,7 +137,6 @@ export const restorePatient = async (patientId, psychologistId) => {
       updatedAt: serverTimestamp(),
       updatedBy: psychologistId
     });
-    
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -169,18 +150,16 @@ export const restorePatient = async (patientId, psychologistId) => {
   }
 };
 
-// Excluir permanentemente (vai para lixeira por 30 dias)
+// Excluir permanentemente (lixeira)
 export const deletePatient = async (patientId, psychologistId) => {
   try {
     const docRef = doc(db, COLLECTION, patientId);
-    // Soft delete
     await updateDoc(docRef, {
       deletedAt: serverTimestamp(),
       status: 'deleted',
       updatedAt: serverTimestamp(),
       updatedBy: psychologistId
     });
-    
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -199,7 +178,6 @@ export const duplicatePatient = async (patientId, psychologistId) => {
   try {
     const original = await getPatientById(patientId);
     if (!original) throw new Error('Paciente não encontrado');
-    
     const { id, createdAt, updatedAt, createdBy, updatedBy, ...rest } = original;
     const newData = {
       ...rest,
@@ -212,9 +190,7 @@ export const duplicatePatient = async (patientId, psychologistId) => {
       createdBy: psychologistId,
       updatedBy: psychologistId
     };
-    
     const docRef = await addDoc(collection(db, COLLECTION), newData);
-    
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -223,7 +199,6 @@ export const duplicatePatient = async (patientId, psychologistId) => {
       targetId: docRef.id,
       details: { originalId: patientId }
     });
-    
     return { id: docRef.id, ...newData };
   } catch (error) {
     console.error('Erro ao duplicar paciente:', error);
@@ -231,7 +206,7 @@ export const duplicatePatient = async (patientId, psychologistId) => {
   }
 };
 
-// Buscar pacientes com filtros (pesquisa global)
+// Busca global (pacientes)
 export const searchPatients = async (psychologistId, searchTerm) => {
   try {
     const q = query(
