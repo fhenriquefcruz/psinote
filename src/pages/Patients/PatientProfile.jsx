@@ -27,11 +27,11 @@ export default function PatientProfile() {
   if (!patient) return <div>Paciente não encontrado</div>;
 
   return (
-    <div>
+    <div style={{ padding: '1rem' }}>
       <h1>{patient.name}</h1>
-      <p>Telefone: {patient.phone || 'Não informado'}</p>
-      <p>Email: {patient.email || 'Não informado'}</p>
-      {/* Adicione mais campos conforme necessário */}
+      <p><strong>Telefone:</strong> {patient.phone || 'Não informado'}</p>
+      <p><strong>Email:</strong> {patient.email || 'Não informado'}</p>
+      <p><strong>Status:</strong> {patient.status}</p>
     </div>
   );
 }
