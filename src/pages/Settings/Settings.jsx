@@ -1,3 +1,3 @@
 export default function Settings() {
-  return <div>Configurações (em breve)</div>;
+  return <div style={{ padding: '1rem' }}>Configurações (em breve)</div>;
 }
