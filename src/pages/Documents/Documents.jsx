@@ -1,3 +1,3 @@
 export default function Documents() {
-  return <div>Documentos (em breve)</div>;
+  return <div style={{ padding: '1rem' }}>Documentos (em breve)</div>;
 }
