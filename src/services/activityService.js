@@ -12,7 +12,6 @@ export const addActivity = async (data) => {
     await addDoc(collection(db, COLLECTION), activityData);
   } catch (error) {
     console.error('Erro ao registrar atividade:', error);
-    // Não interrompe o fluxo principal
   }
 };
 
