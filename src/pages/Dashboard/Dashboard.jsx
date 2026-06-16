@@ -31,10 +31,11 @@ export default function Dashboard() {
         const active = patients.filter(p => p.status === 'active');
         const archived = patients.filter(p => p.status === 'archived');
 
-        const allSessions = [];
+        // Buscar sessões de todos os pacientes ativos
+        let allSessions = [];
         for (const patient of active) {
           const sessions = await getSessionsByPatient(patient.id, user.uid);
-          allSessions.push(...sessions);
+          allSessions = allSessions.concat(sessions);
         }
 
         const now = new Date();
@@ -45,7 +46,7 @@ export default function Dashboard() {
         const sessionsThisYear = allSessions.filter(s => s.date?.toDate() >= yearStart);
 
         const appointments = await getAppointments(user.uid, new Date());
-        const nextAppointments = appointments.filter(a => a.status === 'scheduled').slice(0, 5);
+        const nextAppointments = appointments.filter(a => a.status === 'scheduled' || a.status === 'confirmed').slice(0, 5);
 
         setStats({
           totalPatients: patients.length,
@@ -75,45 +76,21 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
-
     loadDashboardData();
   }, [user]);
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📊</div>
-          <p style={{ color: 'var(--text-muted)' }}>Carregando dashboard...</p>
-        </div>
-      </div>
-    );
+    return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Carregando dashboard...</div>;
   }
 
   return (
     <div style={{ padding: '1.5rem' }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: '2rem'
-      }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0 }}>Dashboard</h1>
-          <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
-            Visão geral da sua prática clínica
-          </p>
+          <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>Visão geral da sua prática clínica</p>
         </div>
-        <div style={{
-          background: 'var(--bg-tertiary)',
-          padding: '0.3rem 0.8rem',
-          borderRadius: '20px',
-          fontSize: '0.75rem',
-          color: 'var(--text-secondary)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.4rem'
-        }}>
+        <div style={{ background: 'var(--bg-tertiary)', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} />
           Online
         </div>
@@ -121,59 +98,21 @@ export default function Dashboard() {
 
       <StatsCards stats={stats} />
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '2fr 1fr',
-        gap: '1.5rem',
-        marginTop: '1.5rem'
-      }}>
-        <div style={{
-          background: 'var(--bg-primary)',
-          padding: '1.5rem',
-          borderRadius: 'var(--radius)',
-          boxShadow: 'var(--shadow-sm)',
-          border: '1px solid var(--border-color)'
-        }}>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-            📈 Evolução do Humor
-          </h3>
-          {moodData.length > 0 ? (
-            <Charts data={moodData} />
-          ) : (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>
-              Nenhum dado de humor registrado ainda
-            </p>
-          )}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
+        <div style={{ background: 'var(--bg-primary)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
+          <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>📈 Evolução do Humor</h3>
+          {moodData.length > 0 ? <Charts data={moodData} /> : <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>Nenhum dado de humor registrado</p>}
         </div>
-
-        <div style={{
-          background: 'var(--bg-primary)',
-          padding: '1.5rem',
-          borderRadius: 'var(--radius)',
-          boxShadow: 'var(--shadow-sm)',
-          border: '1px solid var(--border-color)'
-        }}>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-            📅 Próximas Consultas
-          </h3>
+        <div style={{ background: 'var(--bg-primary)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
+          <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>📅 Próximas Consultas</h3>
           {stats.nextAppointments.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>
-              Nenhuma consulta agendada
-            </p>
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>Nenhuma consulta agendada</p>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {stats.nextAppointments.map((a, index) => (
-                <li
-                  key={a.id}
-                  style={{
-                    padding: '0.6rem 0',
-                    borderBottom: index < stats.nextAppointments.length - 1 ? '1px solid var(--border-color)' : 'none'
-                  }}
-                >
+                <li key={a.id} style={{ padding: '0.6rem 0', borderBottom: index < stats.nextAppointments.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
                   <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{a.patientName}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {a.date?.toDate().toLocaleDateString('pt-BR')} • {a.time}
-                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{a.date?.toDate().toLocaleDateString('pt-BR')} • {a.time}</div>
                 </li>
               ))}
             </ul>
