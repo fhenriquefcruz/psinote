@@ -1,2 +1,29 @@
-VITE_SUPABASE_URL=https://niqazhglxdaizhvtxreh.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pcWF6aGdseGRhaXpodnR4cmVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MTA0MTIsImV4cCI6MjA5NzE4NjQxMn0.Zc3ligVxemi-vxYMxK9dJPSTxLOcI7Ynw6RIySDgwh0
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment variables
+.env
+.env.local
+.env.*.local
