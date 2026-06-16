@@ -64,8 +64,30 @@ export const updateAppointmentStatus = async (appointmentId, psychologistId, sta
       target: 'appointment',
       targetId: appointmentId
     });
+    return true;
   } catch (error) {
     console.error('Erro ao atualizar status:', error);
+    throw error;
+  }
+};
+
+export const updateAppointment = async (appointmentId, psychologistId, data) => {
+  try {
+    const docRef = doc(db, COLLECTION, appointmentId);
+    await updateDoc(docRef, {
+      ...data,
+      updatedAt: serverTimestamp()
+    });
+    await addActivity({
+      psychologistId,
+      user: psychologistId,
+      action: 'Consulta atualizada',
+      target: 'appointment',
+      targetId: appointmentId
+    });
+    return true;
+  } catch (error) {
+    console.error('Erro ao atualizar consulta:', error);
     throw error;
   }
 };
@@ -86,6 +108,7 @@ export const rescheduleAppointment = async (appointmentId, psychologistId, newDa
       target: 'appointment',
       targetId: appointmentId
     });
+    return true;
   } catch (error) {
     console.error('Erro ao reagendar:', error);
     throw error;
@@ -102,6 +125,7 @@ export const deleteAppointment = async (appointmentId, psychologistId) => {
       target: 'appointment',
       targetId: appointmentId
     });
+    return true;
   } catch (error) {
     console.error('Erro ao excluir consulta:', error);
     throw error;
