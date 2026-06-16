@@ -1,36 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { getPatients } from '../../services/patientService';
 import { Link } from 'react-router-dom';
-import styles from './Patients.module.css';
+import { toast } from 'react-toastify';
 
-export default function Patients() {
-  const { user } = useAuth();
-  const [patients, setPatients] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function ForgotPassword() {
+  const [email, setEmail] = useState('');
+  const { resetPassword } = useAuth();
 
-  useEffect(() => {
-    const load = async () => {
-      const list = await getPatients(user.uid);
-      setPatients(list);
-      setLoading(false);
-    };
-    load();
-  }, [user]);
-
-  if (loading) return <div>Carregando...</div>;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await resetPassword(email);
+      toast.success('E-mail de recuperação enviado!');
+    } catch (error) {
+      toast.error('Erro ao enviar e-mail: ' + error.message);
+    }
+  };
 
   return (
-    <div className={styles.container}>
-      <h1>Pacientes</h1>
-      <Link to="/patients/new" className={styles.btnNew}>+ Novo Paciente</Link>
-      <ul className={styles.list}>
-        {patients.map(p => (
-          <li key={p.id}>
-            <Link to={`/patients/${p.id}`}>{p.name}</Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <form onSubmit={handleSubmit}>
+      <input type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      <button type="submit">Recuperar senha</button>
+      <Link to="/login">Voltar ao login</Link>
+    </form>
   );
 }
