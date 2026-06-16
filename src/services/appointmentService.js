@@ -1,6 +1,6 @@
 import { 
   collection, addDoc, getDocs, updateDoc, deleteDoc, doc, 
-  query, where, orderBy, serverTimestamp
+  query, where, orderBy, serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { addActivity } from './activityService';
@@ -17,7 +17,6 @@ export const createAppointment = async (psychologistId, data) => {
       updatedAt: serverTimestamp()
     };
     const docRef = await addDoc(collection(db, COLLECTION), appointmentData);
-    
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -26,7 +25,6 @@ export const createAppointment = async (psychologistId, data) => {
       targetId: docRef.id,
       details: { patientName: data.patientName }
     });
-    
     return { id: docRef.id, ...appointmentData };
   } catch (error) {
     console.error('Erro ao criar consulta:', error);
@@ -41,15 +39,8 @@ export const getAppointments = async (psychologistId, startDate, endDate) => {
       where('psychologistId', '==', psychologistId),
       orderBy('date', 'asc')
     );
-    
-    // Filtrar por data se fornecida
-    if (startDate) {
-      q = query(q, where('date', '>=', startDate));
-    }
-    if (endDate) {
-      q = query(q, where('date', '<=', endDate));
-    }
-    
+    if (startDate) q = query(q, where('date', '>=', startDate));
+    if (endDate) q = query(q, where('date', '<=', endDate));
     const querySnapshot = await getDocs(q);
     const appointments = [];
     querySnapshot.forEach((doc) => {
@@ -65,11 +56,7 @@ export const getAppointments = async (psychologistId, startDate, endDate) => {
 export const updateAppointmentStatus = async (appointmentId, psychologistId, status) => {
   try {
     const docRef = doc(db, COLLECTION, appointmentId);
-    await updateDoc(docRef, {
-      status,
-      updatedAt: serverTimestamp()
-    });
-    
+    await updateDoc(docRef, { status, updatedAt: serverTimestamp() });
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -78,12 +65,11 @@ export const updateAppointmentStatus = async (appointmentId, psychologistId, sta
       targetId: appointmentId
     });
   } catch (error) {
-    console.error('Erro ao atualizar status da consulta:', error);
+    console.error('Erro ao atualizar status:', error);
     throw error;
   }
 };
 
-// Reagendar
 export const rescheduleAppointment = async (appointmentId, psychologistId, newDate, newTime) => {
   try {
     const docRef = doc(db, COLLECTION, appointmentId);
@@ -93,7 +79,6 @@ export const rescheduleAppointment = async (appointmentId, psychologistId, newDa
       status: 'scheduled',
       updatedAt: serverTimestamp()
     });
-    
     await addActivity({
       psychologistId,
       user: psychologistId,
@@ -102,7 +87,23 @@ export const rescheduleAppointment = async (appointmentId, psychologistId, newDa
       targetId: appointmentId
     });
   } catch (error) {
-    console.error('Erro ao reagendar consulta:', error);
+    console.error('Erro ao reagendar:', error);
+    throw error;
+  }
+};
+
+export const deleteAppointment = async (appointmentId, psychologistId) => {
+  try {
+    await deleteDoc(doc(db, COLLECTION, appointmentId));
+    await addActivity({
+      psychologistId,
+      user: psychologistId,
+      action: 'Consulta excluída',
+      target: 'appointment',
+      targetId: appointmentId
+    });
+  } catch (error) {
+    console.error('Erro ao excluir consulta:', error);
     throw error;
   }
 };
