@@ -4,7 +4,18 @@ import { getAppointments, createAppointment, updateAppointmentStatus, deleteAppo
 import { getPatients } from '../../services/patientService';
 import { toast } from 'react-toastify';
 import { Plus, X, Check, Calendar as CalendarIcon, Clock as ClockIcon, Search } from 'lucide-react';
-import { parseDate } from '../../utils/helpers';
+
+// 👇 FUNÇÃO EMBUTIDA PARA SUBSTITUIR O helpers.js
+const parseDate = (value) => {
+  if (!value) return null;
+  if (typeof value?.toDate === 'function') return value.toDate();
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    if (!isNaN(date.getTime())) return date;
+  }
+  if (value instanceof Date && !isNaN(value.getTime())) return value;
+  return null;
+};
 
 export default function Agenda() {
   const { user } = useAuth();
