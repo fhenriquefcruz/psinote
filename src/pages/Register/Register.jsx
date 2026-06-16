@@ -22,12 +22,38 @@ export default function Register() {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input type="text" placeholder="Nome" value={name} onChange={(e) => setName(e.target.value)} required />
-      <input type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required />
-      <input type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} required />
-      <button type="submit">Cadastrar</button>
-      <Link to="/login">Já tenho conta</Link>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+      <input
+        type="text"
+        placeholder="Nome completo"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        required
+        style={{ padding: '0.6rem', border: '1px solid #ccc', borderRadius: '6px' }}
+      />
+      <input
+        type="email"
+        placeholder="E-mail"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+        style={{ padding: '0.6rem', border: '1px solid #ccc', borderRadius: '6px' }}
+      />
+      <input
+        type="password"
+        placeholder="Senha"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+        style={{ padding: '0.6rem', border: '1px solid #ccc', borderRadius: '6px' }}
+      />
+      <button
+        type="submit"
+        style={{ padding: '0.6rem', background: '#4F46E5', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+      >
+        Cadastrar
+      </button>
+      <Link to="/login" style={{ textAlign: 'center', color: '#4F46E5' }}>Já tenho conta</Link>
     </form>
   );
 }
