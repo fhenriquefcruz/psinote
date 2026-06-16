@@ -1,0 +1,42 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Upload de arquivo
+export const uploadToSupabase = async (file, psychologistId, patientId = null) => {
+  // Caminho: psychologistId/patientId/timestamp_nome
+  const folder = patientId ? `${psychologistId}/${patientId}` : `${psychologistId}/geral`;
+  const path = `${folder}/${Date.now()}_${file.name}`;
+
+  const { data, error } = await supabase.storage
+    .from('documents') // nome do bucket
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (error) throw error;
+
+  // Pega URL pública
+  const { data: urlData } = supabase.storage
+    .from('documents')
+    .getPublicUrl(path);
+
+  return {
+    fileURL: urlData.publicUrl,
+    fileType: file.type,
+    fileSize: file.size,
+    path: path,
+  };
+};
+
+// Deletar (opcional)
+export const deleteFromSupabase = async (path) => {
+  const { error } = await supabase.storage
+    .from('documents')
+    .remove([path]);
+  if (error) throw error;
+};
