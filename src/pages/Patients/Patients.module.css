@@ -1,0 +1,5 @@
+.container { padding: 1rem; }
+.btnNew { display: inline-block; margin-bottom: 1rem; background: #4F46E5; color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; }
+.list { list-style: none; padding: 0; }
+.list li { padding: 0.5rem; border-bottom: 1px solid var(--border-color); }
+.list a { text-decoration: none; color: var(--text-primary); }
