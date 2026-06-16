@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { getPatients } from '../../services/patientService';
 import { Link } from 'react-router-dom';
-import styles from './Patients.module.css';
+
 
 export default function Patients() {
   const { user } = useAuth();
