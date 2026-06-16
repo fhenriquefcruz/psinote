@@ -1,6 +1,6 @@
 // ============================================
 // FUNÇÕES AUXILIARES PARA DATAS
-// ============================================
+// ===========================================
 
 /**
  * Converte qualquer formato de data para objeto Date de forma segura
