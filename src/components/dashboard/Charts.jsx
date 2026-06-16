@@ -5,6 +5,9 @@ export default function Charts({ data }) {
     { name: 'Jan', value: 10 },
     { name: 'Fev', value: 20 },
     { name: 'Mar', value: 15 },
+    { name: 'Abr', value: 25 },
+    { name: 'Mai', value: 30 },
+    { name: 'Jun', value: 22 },
   ];
   const chartData = data || defaultData;
   return (
