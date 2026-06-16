@@ -1,0 +1,38 @@
+.sidebar {
+  width: 220px;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0;
+}
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: 0 1rem;
+  margin-bottom: 2rem;
+}
+.sidebar nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 1rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: 0.2s;
+}
+.sidebar nav a:hover, .sidebar nav a.active {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+.logout {
+  margin-top: auto;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
