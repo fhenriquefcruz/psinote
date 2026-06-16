@@ -1,27 +1,29 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Coloque diretamente (mas NÃO COMMITE se puder evitar - mas como é pública, não há problema grave)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Upload de arquivo
 export const uploadToSupabase = async (file, psychologistId, patientId = null) => {
-  // Caminho: psychologistId/patientId/timestamp_nome
   const folder = patientId ? `${psychologistId}/${patientId}` : `${psychologistId}/geral`;
   const path = `${folder}/${Date.now()}_${file.name}`;
 
+  console.log('🔍 Enviando arquivo para:', path);
+
   const { data, error } = await supabase.storage
-    .from('documents') // nome do bucket
+    .from('documents')
     .upload(path, file, {
       cacheControl: '3600',
       upsert: false,
+      contentType: file.type || 'application/octet-stream'
     });
 
-  if (error) throw error;
+  if (error) {
+    console.error('❌ Erro no upload Supabase:', error);
+    throw error;
+  }
 
-  // Pega URL pública
   const { data: urlData } = supabase.storage
     .from('documents')
     .getPublicUrl(path);
@@ -34,7 +36,6 @@ export const uploadToSupabase = async (file, psychologistId, patientId = null) =
   };
 };
 
-// Deletar (opcional)
 export const deleteFromSupabase = async (path) => {
   const { error } = await supabase.storage
     .from('documents')
