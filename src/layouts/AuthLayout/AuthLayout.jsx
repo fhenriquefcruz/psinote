@@ -1,10 +1,13 @@
 import { Outlet } from 'react-router-dom';
+import Logo from '../../components/common/Logo/Logo';
 
 export default function AuthLayout() {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-secondary, #f1f5f9)' }}>
-      <div style={{ background: 'var(--bg-primary, #fff)', padding: '2rem', borderRadius: '12px', boxShadow: 'var(--card-shadow, 0 1px 3px rgba(0,0,0,0.1))', width: '100%', maxWidth: '400px' }}>
-        <h1 style={{ textAlign: 'center', marginBottom: '1.5rem', color: 'var(--text-primary, #0f172a)' }}>🧠 PsiNote</h1>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-secondary)' }}>
+      <div style={{ background: 'var(--bg-primary)', padding: '2rem', borderRadius: '12px', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: '400px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <Logo size="lg" />
+        </div>
         <Outlet />
       </div>
     </div>
