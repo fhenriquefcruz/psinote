@@ -1,11 +1,17 @@
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.8rem 1.5rem;
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-color);
+.menu-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0.2rem;
+  display: block; /* sempre visível */
 }
-.user {
-  font-weight: 500;
+
+@media (min-width: 769px) {
+  .menu-button {
+    display: none; /* opcional: esconder em telas grandes */
+  }
+  .logo-mobile {
+    display: none;
+  }
 }
