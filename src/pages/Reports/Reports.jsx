@@ -20,29 +20,38 @@ export default function Reports() {
   };
 
   // ============================================
-  // FUNÇÃO PARA DESENHAR A LOGO (compatível com jsPDF)
+  // FUNÇÃO PARA DESENHAR A LOGO NO PDF (CORRIGIDA)
   // ============================================
   const drawLogo = (doc, x, y, size = 10) => {
     doc.setDrawColor('#4F46E5');
     doc.setLineWidth(1.5);
+    doc.setFillColor('#4F46E5');
 
-    // Onda cerebral com segmentos retos (aproximação)
-    const points = [
-      [x, y + size],
-      [x + size * 0.3, y + size * 0.2],
-      [x + size * 0.6, y + size * 1.2],
-      [x + size * 0.9, y + size * 0.4],
-      [x + size * 1.2, y + size],
-      [x + size * 1.5, y + size * 0.3],
-      [x + size * 1.8, y + size * 1.1],
-      [x + size * 2.1, y + size * 0.5],
-      [x + size * 2.4, y + size]
-    ];
-    for (let i = 0; i < points.length - 1; i++) {
-      doc.line(points[i][0], points[i][1], points[i+1][0], points[i+1][1]);
-    }
-    // Traço de caneta
-    doc.line(x + size * 2.4, y + size, x + size * 2.7, y + size * 1.2);
+    // Ponto inicial da curva
+    const startX = x;
+    const startY = y + size;
+    doc.moveTo(startX, startY);
+
+    // Primeira curva (onda) usando bezierCurveTo
+    const cp1x = x + size * 0.4;
+    const cp1y = y + size * 0.1;
+    const cp2x = x + size * 0.8;
+    const cp2y = y + size * 1.4;
+    const endX = x + size * 1.2;
+    const endY = y + size;
+    doc.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+
+    // Segunda curva (onda)
+    const cp3x = x + size * 1.6;
+    const cp3y = y + size * 0.1;
+    const cp4x = x + size * 2.0;
+    const cp4y = y + size * 1.4;
+    const endX2 = x + size * 2.4;
+    const endY2 = y + size;
+    doc.bezierCurveTo(cp3x, cp3y, cp4x, cp4y, endX2, endY2);
+
+    // Traço de caneta (linha reta)
+    doc.line(endX2, endY2, x + size * 2.7, y + size * 1.2);
     doc.line(x + size * 2.7, y + size * 1.2, x + size * 3.0, y + size);
   };
 
@@ -58,6 +67,7 @@ export default function Reports() {
     const margin = 20;
     let y = 20;
 
+    // ===== CABEÇALHO =====
     drawLogo(doc, margin, y, 6);
     doc.setFontSize(22);
     doc.setTextColor('#4F46E5');
@@ -82,12 +92,14 @@ export default function Reports() {
     doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, margin, y);
     y += 10;
 
+    // ===== TÍTULO =====
     doc.setFontSize(16);
     doc.setTextColor('#0F172A');
     doc.setFont('helvetica', 'bold');
     doc.text(`Relatório do Paciente: ${patient.name}`, margin, y);
     y += 10;
 
+    // ===== DADOS CADASTRAIS =====
     doc.setFontSize(12);
     doc.setTextColor('#4F46E5');
     doc.setFont('helvetica', 'bold');
@@ -116,6 +128,7 @@ export default function Reports() {
     });
     y += Math.max(col1.length, col2.length) * 6 + 4;
 
+    // ===== ANAMNESE =====
     y += 4;
     doc.setFontSize(12);
     doc.setTextColor('#4F46E5');
@@ -146,6 +159,7 @@ export default function Reports() {
       y += 2;
     });
 
+    // ===== SESSÕES =====
     y += 6;
     doc.setFontSize(12);
     doc.setTextColor('#4F46E5');
@@ -184,6 +198,7 @@ export default function Reports() {
       y += 8;
     }
 
+    // ===== RODAPÉ =====
     const totalPages = doc.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
