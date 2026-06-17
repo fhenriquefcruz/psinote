@@ -8,7 +8,6 @@ import StatsCards from '../../components/dashboard/StatsCards';
 import Charts from '../../components/dashboard/Charts';
 import RecentActivities from '../../components/dashboard/RecentActivities';
 
-// Função auxiliar para parse de datas (já embutida)
 const parseDate = (value) => {
   if (!value) return null;
   if (typeof value?.toDate === 'function') return value.toDate();
@@ -40,12 +39,10 @@ export default function Dashboard() {
       if (!user) return;
       try {
         setLoading(true);
-        // 1. Pacientes
         const patients = await getPatients(user.uid);
         const active = patients.filter(p => p.status === 'active');
         const archived = patients.filter(p => p.status === 'archived');
 
-        // 2. Sessões
         let allSessions = [];
         for (const patient of active) {
           const sessions = await getSessionsByPatient(patient.id, user.uid);
@@ -65,7 +62,6 @@ export default function Dashboard() {
           return d && d >= yearStart;
         });
 
-        // 3. Próximas consultas
         const appointments = await getAppointments(user.uid, new Date());
         const nextAppointments = appointments.filter(a => a.status === 'scheduled' || a.status === 'confirmed').slice(0, 5);
 
@@ -78,7 +74,6 @@ export default function Dashboard() {
           nextAppointments
         });
 
-        // 4. Gráfico de humor
         const moodTrend = allSessions
           .filter(s => s.scales?.mood !== undefined)
           .sort((a, b) => {
@@ -96,7 +91,6 @@ export default function Dashboard() {
           });
         setMoodData(moodTrend);
 
-        // 5. Atividades (com tratamento de erro)
         try {
           const recentActivities = await getRecentActivities(user.uid, 10);
           setActivities(recentActivities);
