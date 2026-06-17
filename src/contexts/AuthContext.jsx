@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
@@ -30,7 +30,6 @@ export function AuthProvider({ children }) {
           setUserProfile(data);
           setUserRole(data.role || 'user');
         } else {
-          // Verifica se o e-mail é o administrador
           const isAdmin = firebaseUser.email === 'fhenriquefcruz@gmail.com';
           const newProfile = {
             name: firebaseUser.displayName || '',
