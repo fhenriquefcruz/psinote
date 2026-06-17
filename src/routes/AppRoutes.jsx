@@ -18,6 +18,7 @@ import Agenda from '../pages/Agenda/Agenda';
 import Documents from '../pages/Documents/Documents';
 import Reports from '../pages/Reports/Reports';
 import Settings from '../pages/Settings/Settings';
+import Admin from '../pages/Admin/Admin';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -25,16 +26,26 @@ const PrivateRoute = ({ children }) => {
   return user ? children : <Navigate to="/login" />;
 };
 
+const AdminRoute = ({ children }) => {
+  const { user, loading, isAdmin } = useAuth();
+  if (loading) return <div style={{ textAlign: 'center', padding: '3rem' }}>Carregando...</div>;
+  if (!user) return <Navigate to="/login" />;
+  if (!isAdmin) return <Navigate to="/dashboard" />;
+  return children;
+};
+
 export default function AppRoutes() {
   return (
     <BrowserRouter basename="/psinote">
       <Routes>
+        {/* Rotas públicas */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
         </Route>
 
+        {/* Rotas privadas */}
         <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
           <Route path="/" element={<Navigate to="/dashboard" />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -47,6 +58,8 @@ export default function AppRoutes() {
           <Route path="/documents" element={<Documents />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
+          {/* Rota de admin protegida */}
+          <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
         </Route>
       </Routes>
     </BrowserRouter>
