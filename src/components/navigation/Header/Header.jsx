@@ -7,53 +7,23 @@ export default function Header({ onMenuClick }) {
   const { userProfile } = useAuth();
 
   return (
-    <header
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '0.6rem 1.5rem',
-        background: 'var(--bg-primary)',
-        borderBottom: '1px solid var(--border-color)',
-        height: '64px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+    <header className="header">
+      <div className="header-left">
         <button
           onClick={onMenuClick}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--text-secondary)',
-            padding: '0.2rem',
-            display: 'block' // ← sempre visível
-          }}
+          className="menu-button"
           aria-label="Abrir menu"
         >
           <Menu size={24} />
         </button>
-        <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--text-primary)' }}>
-          PsiNote
-        </span>
+        <span className="logo-mobile">PsiNote</span>
       </div>
 
       <SearchBar />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="header-right">
         <ThemeToggle />
-        <span
-          style={{
-            fontWeight: 500,
-            color: 'var(--text-primary)',
-            fontSize: '0.875rem'
-          }}
-        >
-          {userProfile?.name || 'Usuário'}
-        </span>
+        <span className="user-name">{userProfile?.name || 'Usuário'}</span>
       </div>
     </header>
   );
