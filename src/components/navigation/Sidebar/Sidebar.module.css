@@ -1,18 +1,71 @@
+/* Overlay para dispositivos móveis */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: none;
+}
+
+/* Sidebar principal */
 .sidebar {
-  width: 220px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 240px;
+  height: 100vh;
   background: var(--bg-primary);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   padding: 1rem 0;
+  z-index: 1000;
+  transition: transform 0.3s ease;
+  transform: translateX(-100%);
 }
-.logo {
-  font-size: 1.5rem;
-  font-weight: bold;
+
+/* Estado aberto (mobile) */
+.sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar.open ~ .overlay {
+  display: block;
+}
+
+/* Cabeçalho da sidebar */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 0 1rem;
   margin-bottom: 2rem;
 }
-.sidebar nav a {
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.closeButton {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+/* Navegação */
+.nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.navLink {
   display: flex;
   align-items: center;
   gap: 0.8rem;
@@ -20,13 +73,22 @@
   color: var(--text-secondary);
   text-decoration: none;
   transition: 0.2s;
+  border-radius: 0.3rem;
 }
-.sidebar nav a:hover, .sidebar nav a.active {
+
+.navLink:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
-.logout {
-  margin-top: auto;
+
+.navLink.active {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Botão de logout */
+.logoutButton {
   background: none;
   border: none;
   display: flex;
@@ -35,4 +97,54 @@
   padding: 0.7rem 1rem;
   cursor: pointer;
   color: var(--text-secondary);
+  margin-top: auto;
+  width: 100%;
+  text-align: left;
+  font-size: 1rem;
+  transition: 0.2s;
+}
+
+.logoutButton:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* ============================================ */
+/* RESPONSIVIDADE                               */
+/* ============================================ */
+
+/* Telas grandes (computadores, notebooks) */
+@media (min-width: 769px) {
+  .sidebar {
+    position: sticky;
+    transform: translateX(0) !important;
+  }
+
+  .overlay {
+    display: none !important;
+  }
+
+  .closeButton {
+    display: none !important;
+  }
+}
+
+/* Telas pequenas (celulares, tablets) */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    transform: translateX(-100%);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar.open ~ .overlay {
+    display: block;
+  }
+
+  .closeButton {
+    display: block;
+  }
 }
