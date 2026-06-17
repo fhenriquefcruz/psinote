@@ -1,4 +1,3 @@
-/* Overlay para dispositivos móveis */
 .overlay {
   position: fixed;
   inset: 0;
@@ -7,7 +6,6 @@
   display: none;
 }
 
-/* Sidebar principal */
 .sidebar {
   position: fixed;
   top: 0;
@@ -24,28 +22,19 @@
   transform: translateX(-100%);
 }
 
-/* Estado aberto (mobile) */
 .sidebar.open {
   transform: translateX(0);
 }
-
 .sidebar.open ~ .overlay {
   display: block;
 }
 
-/* Cabeçalho da sidebar */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 1rem;
   margin-bottom: 2rem;
-}
-
-.logo {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: var(--text-primary);
 }
 
 .closeButton {
@@ -57,7 +46,6 @@
   color: var(--text-secondary);
 }
 
-/* Navegação */
 .nav {
   flex: 1;
   display: flex;
@@ -75,19 +63,16 @@
   transition: 0.2s;
   border-radius: 0.3rem;
 }
-
 .navLink:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
-
 .navLink.active {
   background: var(--bg-secondary);
   color: var(--text-primary);
   font-weight: 500;
 }
 
-/* Botão de logout */
 .logoutButton {
   background: none;
   border: none;
@@ -103,47 +88,36 @@
   font-size: 1rem;
   transition: 0.2s;
 }
-
 .logoutButton:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
-/* ============================================ */
-/* RESPONSIVIDADE                               */
-/* ============================================ */
-
-/* Telas grandes (computadores, notebooks) */
+/* Responsividade */
 @media (min-width: 769px) {
   .sidebar {
     position: sticky;
     transform: translateX(0) !important;
   }
-
   .overlay {
     display: none !important;
   }
-
   .closeButton {
     display: none !important;
   }
 }
 
-/* Telas pequenas (celulares, tablets) */
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
     transform: translateX(-100%);
   }
-
   .sidebar.open {
     transform: translateX(0);
   }
-
   .sidebar.open ~ .overlay {
     display: block;
   }
-
   .closeButton {
     display: block;
   }
