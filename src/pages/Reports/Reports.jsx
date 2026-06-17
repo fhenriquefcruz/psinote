@@ -28,11 +28,11 @@ export default function Reports() {
     const margin = 20;
     let y = 20;
 
-    // ===== HEADER =====
+    // ===== HEADER (sem emoji) =====
     doc.setFontSize(22);
     doc.setTextColor('#4F46E5');
     doc.setFont('helvetica', 'bold');
-    doc.text('🧠 PsiNote', margin, y);
+    doc.text('PsiNote', margin, y);
     y += 8;
 
     doc.setFontSize(10);
@@ -56,7 +56,7 @@ export default function Reports() {
     doc.setFontSize(16);
     doc.setTextColor('#0F172A');
     doc.setFont('helvetica', 'bold');
-    doc.text(`Relatório do Paciente: ${patient.name}`, margin, y);
+    doc.text(`Relatorio do Paciente: ${patient.name}`, margin, y);
     y += 10;
 
     // ===== DADOS CADASTRAIS =====
@@ -71,11 +71,11 @@ export default function Reports() {
     doc.setFont('helvetica', 'normal');
     const fields = [
       ['Nome:', patient.name],
-      ['WhatsApp:', patient.whatsapp || 'Não informado'],
-      ['Email:', patient.email || 'Não informado'],
-      ['Data Nasc.:', patient.birthDate || 'Não informado'],
-      ['Gênero:', patient.gender || 'Não informado'],
-      ['Profissão:', patient.profession || 'Não informado']
+      ['WhatsApp:', patient.whatsapp || 'Nao informado'],
+      ['Email:', patient.email || 'Nao informado'],
+      ['Data Nasc.:', patient.birthDate || 'Nao informado'],
+      ['Genero:', patient.gender || 'Nao informado'],
+      ['Profissao:', patient.profession || 'Nao informado']
     ];
     fields.forEach(([label, value]) => {
       doc.text(`${label} ${value}`, margin + 5, y);
@@ -96,11 +96,11 @@ export default function Reports() {
     const anamnesis = patient.anamnesis || {};
     const anamFields = [
       ['Queixa principal:', anamnesis.chiefComplaint || '-'],
-      ['Histórico familiar:', anamnesis.familyHistory || '-'],
-      ['Histórico médico:', anamnesis.medicalHistory || '-'],
+      ['Historico familiar:', anamnesis.familyHistory || '-'],
+      ['Historico medico:', anamnesis.medicalHistory || '-'],
       ['Medicamentos:', anamnesis.medications || '-'],
-      ['Objetivos terapêuticos:', anamnesis.therapeuticGoals || '-'],
-      ['Observações iniciais:', anamnesis.initialObservations || '-']
+      ['Objetivos terapeuticos:', anamnesis.therapeuticGoals || '-'],
+      ['Observacoes iniciais:', anamnesis.initialObservations || '-']
     ];
     anamFields.forEach(([label, value]) => {
       const lines = doc.splitTextToSize(value, pageWidth - margin * 2 - 30);
@@ -118,7 +118,7 @@ export default function Reports() {
     doc.setFontSize(12);
     doc.setTextColor('#4F46E5');
     doc.setFont('helvetica', 'bold');
-    doc.text(`Sessões Realizadas (${sessions.length})`, margin, y);
+    doc.text(`Sessoes Realizadas (${sessions.length})`, margin, y);
     y += 8;
 
     if (sessions.length > 0) {
@@ -143,7 +143,7 @@ export default function Reports() {
       });
       y = doc.lastAutoTable.finalY + 8;
     } else {
-      doc.text('Nenhuma sessão registrada.', margin + 5, y);
+      doc.text('Nenhuma sessao registrada.', margin + 5, y);
       y += 8;
     }
 
@@ -155,7 +155,7 @@ export default function Reports() {
       doc.setTextColor('#94A3B8');
       doc.setFont('helvetica', 'normal');
       doc.text(
-        `Relatório gerado em ${new Date().toLocaleDateString('pt-BR')} - Página ${i}/${totalPages}`,
+        `Relatorio gerado em ${new Date().toLocaleDateString('pt-BR')} - Pagina ${i}/${totalPages}`,
         pageWidth - margin - 50,
         285
       );
@@ -185,13 +185,13 @@ export default function Reports() {
     doc.setFontSize(22);
     doc.setTextColor('#4F46E5');
     doc.setFont('helvetica', 'bold');
-    doc.text('🧠 PsiNote', margin, y);
+    doc.text('PsiNote', margin, y);
     y += 8;
 
     doc.setFontSize(10);
     doc.setTextColor('#475569');
     doc.setFont('helvetica', 'normal');
-    doc.text(`Psicólogo(a): ${userProfile?.name || 'Não informado'}`, margin, y);
+    doc.text(`Psicólogo(a): ${userProfile?.name || 'Nao informado'}`, margin, y);
     y += 6;
     if (userProfile?.crp && userProfile?.crpUf) {
       doc.text(`CRP: ${userProfile.crp} - ${userProfile.crpUf}`, margin, y);
@@ -206,7 +206,7 @@ export default function Reports() {
     doc.setFontSize(16);
     doc.setTextColor('#0F172A');
     doc.setFont('helvetica', 'bold');
-    doc.text('Relatório Estatístico', margin, y);
+    doc.text('Relatorio Estatistico', margin, y);
     y += 10;
 
     doc.setFontSize(11);
@@ -218,7 +218,7 @@ export default function Reports() {
       ['Pacientes ativos', activePatients.length],
       ['Pacientes arquivados', archivedPatients.length],
       ['Pacientes na lixeira', deletedPatients.length],
-      ['Total de sessões realizadas', totalSessions]
+      ['Total de sessoes realizadas', totalSessions]
     ];
 
     stats.forEach(([label, value]) => {
@@ -234,7 +234,7 @@ export default function Reports() {
       doc.setTextColor('#94A3B8');
       doc.setFont('helvetica', 'normal');
       doc.text(
-        `Relatório gerado em ${new Date().toLocaleDateString('pt-BR')} - Página ${i}/${totalPages}`,
+        `Relatorio gerado em ${new Date().toLocaleDateString('pt-BR')} - Pagina ${i}/${totalPages}`,
         pageWidth - margin - 50,
         285
       );
@@ -253,13 +253,13 @@ export default function Reports() {
       }
       if (reportType === 'patient') {
         await generatePatientPDF(selectedPatient);
-        toast.success('Relatório do paciente gerado!');
+        toast.success('Relatorio do paciente gerado!');
       } else {
         await generateStatisticsPDF();
-        toast.success('Relatório estatístico gerado!');
+        toast.success('Relatorio estatistico gerado!');
       }
     } catch (error) {
-      toast.error('Erro ao gerar relatório: ' + error.message);
+      toast.error('Erro ao gerar relatorio: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -268,7 +268,7 @@ export default function Reports() {
   return (
     <div style={{ padding: '1.5rem', maxWidth: '700px', margin: '0 auto' }}>
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ margin: 0 }}>📊 Relatórios</h1>
+        <h1 style={{ margin: 0 }}>Relatórios</h1>
         <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>Gere documentos profissionais e estatísticas</p>
         {userProfile?.crp && (
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>CRP: {userProfile.crp} - {userProfile.crpUf}</p>
@@ -304,7 +304,7 @@ export default function Reports() {
       </div>
 
       <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-        <strong>📌 Conformidade CRP:</strong> Os relatórios incluem identificação profissional e são gerados em conformidade com as normas do Conselho Regional de Psicologia.
+        <strong>Conformidade CRP:</strong> Os relatórios incluem identificação profissional e são gerados em conformidade com as normas do Conselho Regional de Psicologia.
       </div>
     </div>
   );
