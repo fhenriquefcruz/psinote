@@ -47,11 +47,10 @@ export default function Reports() {
     doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, margin, y);
     y += 8;
 
-    // Linha separadora
     doc.setDrawColor('#E2E8F0');
     doc.setLineWidth(0.5);
     doc.line(margin, y, pageWidth - margin, y);
-    y += 8;
+    y += 10;
 
     // ===== TÍTULO =====
     doc.setFontSize(16);
@@ -123,20 +122,24 @@ export default function Reports() {
     y += 8;
 
     if (sessions.length > 0) {
-      const tableData = sessions.map(s => [
-        s.date?.toDate().toLocaleDateString('pt-BR') || '',
-        s.mainTheme || '-',
-        s.scales?.mood || '-'
-      ]);
+      const tableData = sessions.map(s => {
+        const date = s.date?.toDate ? s.date.toDate() : new Date(s.date);
+        return [
+          date.toLocaleDateString('pt-BR') || '',
+          s.mainTheme || '-',
+          s.scales?.mood || '-'
+        ];
+      });
 
       doc.autoTable({
         startY: y,
         head: [['Data', 'Tema', 'Humor']],
         body: tableData,
         theme: 'grid',
-        styles: { fontSize: 9, cellPadding: 2 },
+        styles: { fontSize: 9, cellPadding: 2, halign: 'left' },
         headStyles: { fillColor: '#4F46E5', textColor: '#FFFFFF', fontSize: 9 },
-        margin: { left: margin, right: margin }
+        margin: { left: margin, right: margin },
+        alternateRowStyles: { fillColor: '#F8FAFC' }
       });
       y = doc.lastAutoTable.finalY + 8;
     } else {
@@ -158,18 +161,15 @@ export default function Reports() {
       );
     }
 
-    // Download
     doc.save(`Relatorio_${patient.name}_${new Date().toISOString().slice(0,10)}.pdf`);
   };
 
-  // ===== RELATÓRIO ESTATÍSTICO =====
   const generateStatisticsPDF = async () => {
     const allPatients = await getPatients(user.uid);
     const activePatients = allPatients.filter(p => p.status === 'active');
     const archivedPatients = allPatients.filter(p => p.status === 'archived');
     const deletedPatients = allPatients.filter(p => p.status === 'deleted');
 
-    // Buscar todas as sessões de pacientes ativos para estatísticas
     let totalSessions = 0;
     for (const p of activePatients) {
       const sessions = await getSessionsByPatient(p.id, user.uid);
@@ -201,16 +201,14 @@ export default function Reports() {
     y += 8;
 
     doc.line(margin, y, pageWidth - margin, y);
-    y += 8;
+    y += 10;
 
-    // Título
     doc.setFontSize(16);
     doc.setTextColor('#0F172A');
     doc.setFont('helvetica', 'bold');
     doc.text('Relatório Estatístico', margin, y);
     y += 10;
 
-    // Dados
     doc.setFontSize(11);
     doc.setTextColor('#475569');
     doc.setFont('helvetica', 'normal');
@@ -229,7 +227,6 @@ export default function Reports() {
       y += 8;
     });
 
-    // Footer
     const totalPages = doc.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
@@ -246,7 +243,6 @@ export default function Reports() {
     doc.save(`Relatorio_Estatistico_${new Date().toISOString().slice(0,10)}.pdf`);
   };
 
-  // ===== HANDLE GENERATE =====
   const handleGenerate = async () => {
     setLoading(true);
     try {
@@ -269,7 +265,6 @@ export default function Reports() {
     }
   };
 
-  // ===== RENDER =====
   return (
     <div style={{ padding: '1.5rem', maxWidth: '700px', margin: '0 auto' }}>
       <div style={{ marginBottom: '2rem' }}>
