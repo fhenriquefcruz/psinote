@@ -56,3 +56,16 @@ p, li, span, label {
 .fade-in {
   animation: fadeIn 0.3s ease-out;
 }
+/* Esconde o botão hambúrguer em telas grandes */
+@media (min-width: 769px) {
+  .menu-button {
+    display: none !important;
+  }
+}
+
+/* Exibe o botão em telas pequenas */
+@media (max-width: 768px) {
+  .menu-button {
+    display: block !important;
+  }
+}
