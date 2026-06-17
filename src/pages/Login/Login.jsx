@@ -17,8 +17,10 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
+      toast.success('Login realizado!');
       navigate('/dashboard');
     } catch (error) {
+      console.error('Erro no login:', error);
       toast.error('Erro ao fazer login: ' + error.message);
     } finally {
       setLoading(false);
