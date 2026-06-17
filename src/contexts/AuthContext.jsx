@@ -26,7 +26,12 @@ export function AuthProvider({ children }) {
         const docRef = doc(db, 'users', firebaseUser.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          const data = docSnap.data();
+          let data = docSnap.data();
+          // 👇 FORÇA ADMIN PARA O E-MAIL ESPECÍFICO
+          if (firebaseUser.email === 'fhenriquefcruz@gmail.com' && data.role !== 'admin') {
+            data.role = 'admin';
+            await setDoc(docRef, data, { merge: true });
+          }
           setUserProfile(data);
           setUserRole(data.role || 'user');
         } else {
@@ -104,7 +109,6 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Hook useAuth (exportado para ser usado em outros arquivos)
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
