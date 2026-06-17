@@ -7,7 +7,18 @@ import { getRecentActivities } from '../../services/activityService';
 import StatsCards from '../../components/dashboard/StatsCards';
 import Charts from '../../components/dashboard/Charts';
 import RecentActivities from '../../components/dashboard/RecentActivities';
-import IndexWarning from '../../components/common/IndexWarning/IndexWarning';
+
+// Função auxiliar para parse de datas (já embutida)
+const parseDate = (value) => {
+  if (!value) return null;
+  if (typeof value?.toDate === 'function') return value.toDate();
+  if (typeof value === 'string' || typeof value === 'number') {
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) return d;
+  }
+  if (value instanceof Date && !isNaN(value.getTime())) return value;
+  return null;
+};
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -22,16 +33,19 @@ export default function Dashboard() {
   const [activities, setActivities] = useState([]);
   const [moodData, setMoodData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activitiesError, setActivitiesError] = useState(false);
 
   useEffect(() => {
     const loadDashboardData = async () => {
       if (!user) return;
       try {
         setLoading(true);
+        // 1. Pacientes
         const patients = await getPatients(user.uid);
         const active = patients.filter(p => p.status === 'active');
         const archived = patients.filter(p => p.status === 'archived');
 
+        // 2. Sessões
         let allSessions = [];
         for (const patient of active) {
           const sessions = await getSessionsByPatient(patient.id, user.uid);
@@ -43,14 +57,15 @@ export default function Dashboard() {
         const yearStart = new Date(now.getFullYear(), 0, 1);
 
         const sessionsThisMonth = allSessions.filter(s => {
-          const d = s.date?.toDate ? s.date.toDate() : new Date(s.date);
-          return d >= monthStart;
+          const d = parseDate(s.date);
+          return d && d >= monthStart;
         });
         const sessionsThisYear = allSessions.filter(s => {
-          const d = s.date?.toDate ? s.date.toDate() : new Date(s.date);
-          return d >= yearStart;
+          const d = parseDate(s.date);
+          return d && d >= yearStart;
         });
 
+        // 3. Próximas consultas
         const appointments = await getAppointments(user.uid, new Date());
         const nextAppointments = appointments.filter(a => a.status === 'scheduled' || a.status === 'confirmed').slice(0, 5);
 
@@ -63,26 +78,34 @@ export default function Dashboard() {
           nextAppointments
         });
 
-        // Dados para gráfico – CORRIGIDO
+        // 4. Gráfico de humor
         const moodTrend = allSessions
           .filter(s => s.scales?.mood !== undefined)
           .sort((a, b) => {
-            const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
-            const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
-            return dateA - dateB;
+            const da = parseDate(a.date);
+            const db = parseDate(b.date);
+            return da - db;
           })
           .slice(-10)
           .map(s => {
-            const date = s.date?.toDate ? s.date.toDate() : new Date(s.date);
+            const d = parseDate(s.date);
             return {
-              date: date.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }),
+              date: d ? d.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }) : '',
               humor: s.scales?.mood || 0
             };
           });
         setMoodData(moodTrend);
 
-        const recentActivities = await getRecentActivities(user.uid, 10);
-        setActivities(recentActivities);
+        // 5. Atividades (com tratamento de erro)
+        try {
+          const recentActivities = await getRecentActivities(user.uid, 10);
+          setActivities(recentActivities);
+          setActivitiesError(false);
+        } catch (err) {
+          console.warn('Erro ao buscar atividades (índice pode não estar criado):', err);
+          setActivitiesError(true);
+          setActivities([]);
+        }
       } catch (error) {
         console.error('Erro ao carregar dashboard:', error);
       } finally {
@@ -98,7 +121,6 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: '1.5rem' }}>
-      <IndexWarning />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0 }}>Dashboard</h1>
@@ -135,6 +157,11 @@ export default function Dashboard() {
       </div>
 
       <div style={{ marginTop: '1.5rem' }}>
+        {activitiesError && (
+          <div style={{ background: '#FEF3C7', padding: '0.5rem 1rem', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', color: '#78350F', fontSize: '0.875rem' }}>
+            ⚠️ Não foi possível carregar atividades recentes. Verifique se o índice do Firestore foi criado.
+          </div>
+        )}
         <RecentActivities activities={activities} />
       </div>
     </div>
