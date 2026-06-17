@@ -14,9 +14,7 @@ export default function Sidebar({ isOpen, onClose }) {
     { to: '/settings', icon: Settings, label: 'Configurações' },
   ];
 
-  // Adiciona link Admin apenas se for admin
   const adminLink = isAdmin ? [{ to: '/admin', icon: Shield, label: 'Administração' }] : [];
-
   const allLinks = [...links, ...adminLink];
 
   const handleLogout = () => {
@@ -26,7 +24,6 @@ export default function Sidebar({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Overlay para mobile */}
       {isOpen && (
         <div
           onClick={onClose}
@@ -55,10 +52,6 @@ export default function Sidebar({ isOpen, onClose }) {
           zIndex: 1000,
           transition: 'transform 0.3s ease',
           transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
-          '@media (min-width: 769px)': {
-            transform: 'translateX(0) !important',
-            position: 'sticky'
-          }
         }}
         className="sidebar-desktop"
       >
@@ -72,7 +65,6 @@ export default function Sidebar({ isOpen, onClose }) {
               border: 'none',
               cursor: 'pointer',
               color: 'var(--text-secondary)',
-              '@media (max-width: 768px)': { display: 'block' }
             }}
             className="close-mobile"
           >
