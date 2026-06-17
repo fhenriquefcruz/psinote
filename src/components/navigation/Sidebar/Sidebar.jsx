@@ -1,9 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, FileText, BarChart, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, FileText, BarChart, Settings, LogOut, Shield } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 
-export default function Sidebar() {
-  const { logout } = useAuth();
+export default function Sidebar({ isOpen, onClose }) {
+  const { logout, isAdmin } = useAuth();
   const links = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/patients', icon: Users, label: 'Pacientes' },
@@ -11,6 +11,7 @@ export default function Sidebar() {
     { to: '/documents', icon: FileText, label: 'Documentos' },
     { to: '/reports', icon: BarChart, label: 'Relatórios' },
     { to: '/settings', icon: Settings, label: 'Configurações' },
+    ...(isAdmin ? [{ to: '/admin', icon: Shield, label: 'Administração' }] : [])
   ];
 
   return (
