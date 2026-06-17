@@ -1,0 +1,27 @@
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo svg {
+  transition: transform 0.3s ease;
+}
+
+.logo:hover svg {
+  transform: scale(1.05);
+}
+
+@keyframes write {
+  0% {
+    stroke-dasharray: 0 100;
+  }
+  100% {
+    stroke-dasharray: 100 0;
+  }
+}
+
+.logo-animated path {
+  stroke-dasharray: 100;
+  animation: write 1.5s ease-in-out infinite alternate;
+}
