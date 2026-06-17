@@ -8,14 +8,26 @@ import StatsCards from '../../components/dashboard/StatsCards';
 import Charts from '../../components/dashboard/Charts';
 import RecentActivities from '../../components/dashboard/RecentActivities';
 
+// Função robusta para converter qualquer formato de data para Date
 const parseDate = (value) => {
   if (!value) return null;
-  if (typeof value?.toDate === 'function') return value.toDate();
+  
+  // Se for Timestamp do Firestore
+  if (value?.toDate && typeof value.toDate === 'function') {
+    return value.toDate();
+  }
+  
+  // Se for string ISO ou número timestamp
   if (typeof value === 'string' || typeof value === 'number') {
     const d = new Date(value);
     if (!isNaN(d.getTime())) return d;
   }
-  if (value instanceof Date && !isNaN(value.getTime())) return value;
+  
+  // Se já for objeto Date
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return value;
+  }
+  
   return null;
 };
 
@@ -44,7 +56,7 @@ export default function Dashboard() {
         const active = patients.filter(p => p.status === 'active');
         const archived = patients.filter(p => p.status === 'archived');
 
-        // 2. Sessões
+        // 2. Sessões – busca todas as sessões de todos os pacientes ativos
         let allSessions = [];
         for (const patient of active) {
           const sessions = await getSessionsByPatient(patient.id, user.uid);
@@ -55,6 +67,7 @@ export default function Dashboard() {
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const yearStart = new Date(now.getFullYear(), 0, 1);
 
+        // 🔥 Filtragem com parseDate robusto
         const sessionsThisMonth = allSessions.filter(s => {
           const d = parseDate(s.date);
           return d && d >= monthStart;
@@ -108,7 +121,7 @@ export default function Dashboard() {
           });
         setMoodData(moodTrend);
 
-        // 5. Atividades (com tratamento de erro)
+        // 5. Atividades
         try {
           const recentActivities = await getRecentActivities(user.uid, 10);
           setActivities(recentActivities);
