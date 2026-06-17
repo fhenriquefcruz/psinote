@@ -104,7 +104,7 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Hook useAuth
+// Hook useAuth (exportado para ser usado em outros arquivos)
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
