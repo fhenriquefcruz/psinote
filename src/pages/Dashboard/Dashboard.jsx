@@ -39,10 +39,12 @@ export default function Dashboard() {
       if (!user) return;
       try {
         setLoading(true);
+        // 1. Pacientes
         const patients = await getPatients(user.uid);
         const active = patients.filter(p => p.status === 'active');
         const archived = patients.filter(p => p.status === 'archived');
 
+        // 2. Sessões
         let allSessions = [];
         for (const patient of active) {
           const sessions = await getSessionsByPatient(patient.id, user.uid);
@@ -62,8 +64,22 @@ export default function Dashboard() {
           return d && d >= yearStart;
         });
 
-        const appointments = await getAppointments(user.uid, new Date());
-        const nextAppointments = appointments.filter(a => a.status === 'scheduled' || a.status === 'confirmed').slice(0, 5);
+        // 3. Próximas consultas (busca todas, filtra por hoje em diante)
+        let allAppointments = [];
+        try {
+          allAppointments = await getAppointments(user.uid);
+        } catch (err) {
+          console.warn('Erro ao buscar consultas (índice pendente):', err);
+        }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const nextAppointments = allAppointments
+          .filter(a => {
+            const d = parseDate(a.date);
+            return d && d >= today && (a.status === 'scheduled' || a.status === 'confirmed');
+          })
+          .sort((a, b) => parseDate(a.date) - parseDate(b.date))
+          .slice(0, 5);
 
         setStats({
           totalPatients: patients.length,
@@ -74,6 +90,7 @@ export default function Dashboard() {
           nextAppointments
         });
 
+        // 4. Gráfico de humor
         const moodTrend = allSessions
           .filter(s => s.scales?.mood !== undefined)
           .sort((a, b) => {
@@ -91,12 +108,13 @@ export default function Dashboard() {
           });
         setMoodData(moodTrend);
 
+        // 5. Atividades (com tratamento de erro)
         try {
           const recentActivities = await getRecentActivities(user.uid, 10);
           setActivities(recentActivities);
           setActivitiesError(false);
         } catch (err) {
-          console.warn('Erro ao buscar atividades (índice pode não estar criado):', err);
+          console.warn('Erro ao buscar atividades (índice pendente):', err);
           setActivitiesError(true);
           setActivities([]);
         }
@@ -139,12 +157,17 @@ export default function Dashboard() {
             <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>Nenhuma consulta agendada</p>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {stats.nextAppointments.map((a, index) => (
-                <li key={a.id} style={{ padding: '0.6rem 0', borderBottom: index < stats.nextAppointments.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
-                  <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{a.patientName}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{a.date?.toDate().toLocaleDateString('pt-BR')} • {a.time}</div>
-                </li>
-              ))}
+              {stats.nextAppointments.map((a, index) => {
+                const d = parseDate(a.date);
+                return (
+                  <li key={a.id} style={{ padding: '0.6rem 0', borderBottom: index < stats.nextAppointments.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                    <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{a.patientName}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      {d ? d.toLocaleDateString('pt-BR') : 'Data inválida'} • {a.time}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
