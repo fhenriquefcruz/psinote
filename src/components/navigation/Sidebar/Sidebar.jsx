@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Users, Calendar, FileText, BarChart, Settings, LogOut, Shield } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
+import Logo from '../../common/Logo/Logo';
 import styles from './Sidebar.module.css';
 
 export default function Sidebar({ isOpen, onClose }) {
@@ -25,25 +26,11 @@ export default function Sidebar({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Overlay para mobile */}
-      {isOpen && (
-        <div
-          className={styles.overlay}
-          onClick={onClose}
-        />
-      )}
-
-      <aside
-        className={`${styles.sidebar} ${isOpen ? styles.open : ''}`}
-      >
+      {isOpen && <div className={styles.overlay} onClick={onClose} />}
+      <aside className={`${styles.sidebar} ${isOpen ? styles.open : ''}`}>
         <div className={styles.header}>
-          <span className={styles.logo}>PsiNote</span>
-          <button
-            onClick={onClose}
-            className={styles.closeButton}
-          >
-            ✕
-          </button>
+          <Logo size="md" />
+          <button onClick={onClose} className={styles.closeButton}>✕</button>
         </div>
 
         <nav className={styles.nav}>
