@@ -28,8 +28,7 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      const result = await signInWithPopup(auth, provider);
-      // O usuário é automaticamente autenticado; o AuthContext vai atualizar
+      await signInWithPopup(auth, provider);
       toast.success('Login com Google realizado!');
       navigate('/dashboard');
     } catch (error) {
@@ -45,7 +44,7 @@ export default function Login() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
-        style={inputStyle}
+        style={{ padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
       />
       <input
         type="password"
@@ -53,12 +52,12 @@ export default function Login() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
-        style={inputStyle}
+        style={{ padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
       />
       <button
         type="submit"
         disabled={loading}
-        style={{ ...buttonStyle, opacity: loading ? 0.7 : 1 }}
+        style={{ padding: '0.6rem', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, opacity: loading ? 0.7 : 1 }}
       >
         {loading ? 'Entrando...' : 'Entrar'}
       </button>
@@ -73,8 +72,13 @@ export default function Login() {
         type="button"
         onClick={handleGoogleLogin}
         style={{
-          ...buttonStyle,
+          padding: '0.6rem',
           background: '#4285F4',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontWeight: 600,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -90,24 +94,3 @@ export default function Login() {
     </form>
   );
 }
-
-const inputStyle = {
-  padding: '0.6rem',
-  borderRadius: 'var(--radius-sm)',
-  border: '1px solid var(--border-color)',
-  background: 'var(--bg-primary)',
-  color: 'var(--text-primary)',
-  fontSize: '1rem'
-};
-
-const buttonStyle = {
-  padding: '0.6rem',
-  background: 'var(--primary)',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 'var(--radius-sm)',
-  cursor: 'pointer',
-  fontWeight: 600,
-  fontSize: '1rem',
-  transition: 'var(--transition)'
-};
