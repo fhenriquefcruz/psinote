@@ -105,8 +105,11 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// 🔥 Exporta o Context para ser usado no useAuth.js
-export { AuthContext };
-
-// Hook auxiliar para usar o contexto (opcional, já está disponível via import do useAuth)
-export const useAuth = () => useContext(AuthContext);
+// Hook para usar o contexto (compatível com useAuth)
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
