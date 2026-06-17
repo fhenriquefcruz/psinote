@@ -1,8 +1,2 @@
-// Dentro de AuthContext.jsx
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+// Re-exportação do useAuth do contexto para manter compatibilidade
+export { useAuth } from '../contexts/AuthContext';
