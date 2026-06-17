@@ -11,7 +11,7 @@ import { auth } from '../firebase/config';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -105,4 +105,8 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// 🔥 Exporta o Context para ser usado no useAuth.js
+export { AuthContext };
+
+// Hook auxiliar para usar o contexto (opcional, já está disponível via import do useAuth)
 export const useAuth = () => useContext(AuthContext);
