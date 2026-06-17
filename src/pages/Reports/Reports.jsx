@@ -20,33 +20,27 @@ export default function Reports() {
   };
 
   // ============================================
-  // FUNÇÃO PARA DESENHAR A LOGO NO PDF
+  // FUNÇÃO PARA DESENHAR A LOGO (compatível com jsPDF)
   // ============================================
   const drawLogo = (doc, x, y, size = 10) => {
-    // Onda cerebral (curva)
     doc.setDrawColor('#4F46E5');
     doc.setLineWidth(1.5);
-    // Curva: M6 18 C10 10, 14 26, 18 18 C22 10, 26 26, 30 18
-    const startX = x;
-    const startY = y + size;
-    const cp1x = x + size * 0.4;
-    const cp1y = y + size * 0.1;
-    const cp2x = x + size * 0.8;
-    const cp2y = y + size * 1.4;
-    const endX = x + size * 1.8;
-    const endY = y + size;
-    // Primeira metade da onda
-    doc.bezierCurveTo(
-      x + size * 0.4, y + size * 0.1,
-      x + size * 0.8, y + size * 1.4,
-      x + size * 1.2, y + size
-    );
-    // Segunda metade da onda
-    doc.bezierCurveTo(
-      x + size * 1.6, y + size * 0.1,
-      x + size * 2.0, y + size * 1.4,
-      x + size * 2.4, y + size
-    );
+
+    // Onda cerebral com segmentos retos (aproximação)
+    const points = [
+      [x, y + size],
+      [x + size * 0.3, y + size * 0.2],
+      [x + size * 0.6, y + size * 1.2],
+      [x + size * 0.9, y + size * 0.4],
+      [x + size * 1.2, y + size],
+      [x + size * 1.5, y + size * 0.3],
+      [x + size * 1.8, y + size * 1.1],
+      [x + size * 2.1, y + size * 0.5],
+      [x + size * 2.4, y + size]
+    ];
+    for (let i = 0; i < points.length - 1; i++) {
+      doc.line(points[i][0], points[i][1], points[i+1][0], points[i+1][1]);
+    }
     // Traço de caneta
     doc.line(x + size * 2.4, y + size, x + size * 2.7, y + size * 1.2);
     doc.line(x + size * 2.7, y + size * 1.2, x + size * 3.0, y + size);
@@ -64,22 +58,18 @@ export default function Reports() {
     const margin = 20;
     let y = 20;
 
-    // ===== CABEÇALHO =====
-    // Logo desenhada
     drawLogo(doc, margin, y, 6);
     doc.setFontSize(22);
     doc.setTextColor('#4F46E5');
     doc.setFont('helvetica', 'bold');
     doc.text('PsiNote', margin + 28, y + 10);
 
-    // Linha separadora
     y += 18;
     doc.setDrawColor('#E2E8F0');
     doc.setLineWidth(0.5);
     doc.line(margin, y, pageWidth - margin, y);
     y += 6;
 
-    // Dados do profissional
     doc.setFontSize(10);
     doc.setTextColor('#475569');
     doc.setFont('helvetica', 'normal');
@@ -92,14 +82,12 @@ export default function Reports() {
     doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, margin, y);
     y += 10;
 
-    // ===== TÍTULO =====
     doc.setFontSize(16);
     doc.setTextColor('#0F172A');
     doc.setFont('helvetica', 'bold');
     doc.text(`Relatório do Paciente: ${patient.name}`, margin, y);
     y += 10;
 
-    // ===== DADOS CADASTRAIS =====
     doc.setFontSize(12);
     doc.setTextColor('#4F46E5');
     doc.setFont('helvetica', 'bold');
@@ -117,7 +105,6 @@ export default function Reports() {
       ['Gênero:', patient.gender || 'Não informado'],
       ['Profissão:', patient.profession || 'Não informado']
     ];
-    // Duas colunas
     const col1 = fields.slice(0, 3);
     const col2 = fields.slice(3);
     const colX = margin + 80;
@@ -129,7 +116,6 @@ export default function Reports() {
     });
     y += Math.max(col1.length, col2.length) * 6 + 4;
 
-    // ===== ANAMNESE =====
     y += 4;
     doc.setFontSize(12);
     doc.setTextColor('#4F46E5');
@@ -160,7 +146,6 @@ export default function Reports() {
       y += 2;
     });
 
-    // ===== SESSÕES =====
     y += 6;
     doc.setFontSize(12);
     doc.setTextColor('#4F46E5');
@@ -199,7 +184,6 @@ export default function Reports() {
       y += 8;
     }
 
-    // ===== RODAPÉ =====
     const totalPages = doc.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
@@ -211,7 +195,6 @@ export default function Reports() {
         pageWidth - margin - 50,
         285
       );
-      // Linha fina no rodapé
       doc.setDrawColor('#E2E8F0');
       doc.setLineWidth(0.3);
       doc.line(margin, 280, pageWidth - margin, 280);
@@ -240,7 +223,6 @@ export default function Reports() {
     let y = 20;
     const pageWidth = 210;
 
-    // ===== CABEÇALHO =====
     drawLogo(doc, margin, y, 6);
     doc.setFontSize(22);
     doc.setTextColor('#4F46E5');
@@ -264,14 +246,12 @@ export default function Reports() {
     doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, margin, y);
     y += 10;
 
-    // ===== TÍTULO =====
     doc.setFontSize(16);
     doc.setTextColor('#0F172A');
     doc.setFont('helvetica', 'bold');
     doc.text('Relatório Estatístico', margin, y);
     y += 10;
 
-    // ===== DADOS =====
     doc.setFontSize(11);
     doc.setTextColor('#475569');
     doc.setFont('helvetica', 'normal');
@@ -284,7 +264,6 @@ export default function Reports() {
       ['Total de sessões realizadas', totalSessions]
     ];
 
-    // Tabela estatística
     doc.autoTable({
       startY: y,
       head: [['Métrica', 'Valor']],
@@ -297,7 +276,6 @@ export default function Reports() {
     });
     y = doc.lastAutoTable.finalY + 10;
 
-    // ===== RODAPÉ =====
     const totalPages = doc.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
@@ -337,6 +315,7 @@ export default function Reports() {
       }
     } catch (error) {
       toast.error('Erro ao gerar relatório: ' + error.message);
+      console.error(error);
     } finally {
       setLoading(false);
     }
