@@ -4,6 +4,7 @@ import { useAuth } from '../../../hooks/useAuth';
 
 export default function Sidebar({ isOpen, onClose }) {
   const { logout, isAdmin } = useAuth();
+
   const links = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/patients', icon: Users, label: 'Pacientes' },
@@ -11,39 +12,114 @@ export default function Sidebar({ isOpen, onClose }) {
     { to: '/documents', icon: FileText, label: 'Documentos' },
     { to: '/reports', icon: BarChart, label: 'Relatórios' },
     { to: '/settings', icon: Settings, label: 'Configurações' },
-    ...(isAdmin ? [{ to: '/admin', icon: Shield, label: 'Administração' }] : [])
   ];
 
+  // Adiciona link Admin apenas se for admin
+  const adminLink = isAdmin ? [{ to: '/admin', icon: Shield, label: 'Administração' }] : [];
+
+  const allLinks = [...links, ...adminLink];
+
+  const handleLogout = () => {
+    logout();
+    if (onClose) onClose();
+  };
+
   return (
-    <aside style={{ width: '220px', background: 'var(--bg-primary, #fff)', borderRight: '1px solid var(--border-color, #e2e8f0)', display: 'flex', flexDirection: 'column', padding: '1rem 0', height: '100vh' }}>
-      <div style={{ fontSize: '1.5rem', fontWeight: 'bold', padding: '0 1rem', marginBottom: '2rem', color: 'var(--text-primary, #0f172a)' }}>🧠 PsiNote</div>
-      <nav style={{ flex: 1 }}>
-        {links.map(link => (
-          <NavLink
-            key={link.to}
-            to={link.to}
-            style={({ isActive }) => ({
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.8rem',
-              padding: '0.7rem 1rem',
-              color: isActive ? 'var(--text-primary, #0f172a)' : 'var(--text-secondary, #475569)',
-              background: isActive ? 'var(--bg-secondary, #f1f5f9)' : 'transparent',
-              textDecoration: 'none',
-              transition: '0.2s'
-            })}
-          >
-            <link.icon size={20} />
-            <span>{link.label}</span>
-          </NavLink>
-        ))}
-      </nav>
-      <button
-        onClick={logout}
-        style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 1rem', cursor: 'pointer', color: 'var(--text-secondary, #475569)' }}
+    <>
+      {/* Overlay para mobile */}
+      {isOpen && (
+        <div
+          onClick={onClose}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 999,
+            display: 'block'
+          }}
+        />
+      )}
+
+      <aside
+        style={{
+          position: isOpen ? 'fixed' : 'sticky',
+          top: 0,
+          left: 0,
+          width: '240px',
+          height: '100vh',
+          background: 'var(--bg-primary)',
+          borderRight: '1px solid var(--border-color)',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '1rem 0',
+          zIndex: 1000,
+          transition: 'transform 0.3s ease',
+          transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+          '@media (min-width: 769px)': {
+            transform: 'translateX(0) !important',
+            position: 'sticky'
+          }
+        }}
+        className="sidebar-desktop"
       >
-        <LogOut size={20} /> Sair
-      </button>
-    </aside>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 1rem', marginBottom: '2rem' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>PsiNote</div>
+          <button
+            onClick={onClose}
+            style={{
+              display: 'none',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-secondary)',
+              '@media (max-width: 768px)': { display: 'block' }
+            }}
+            className="close-mobile"
+          >
+            ✕
+          </button>
+        </div>
+
+        <nav style={{ flex: 1 }}>
+          {allLinks.map(link => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              onClick={onClose}
+              style={({ isActive }) => ({
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.8rem',
+                padding: '0.7rem 1rem',
+                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                background: isActive ? 'var(--bg-secondary)' : 'transparent',
+                textDecoration: 'none',
+                transition: '0.2s'
+              })}
+            >
+              <link.icon size={20} />
+              <span>{link.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+
+        <button
+          onClick={handleLogout}
+          style={{
+            background: 'none',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.8rem',
+            padding: '0.7rem 1rem',
+            cursor: 'pointer',
+            color: 'var(--text-secondary)',
+            marginTop: 'auto'
+          }}
+        >
+          <LogOut size={20} /> Sair
+        </button>
+      </aside>
+    </>
   );
 }
