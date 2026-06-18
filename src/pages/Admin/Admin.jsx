@@ -78,48 +78,60 @@ export default function Admin() {
         Gerencie os usuários da plataforma. Apenas administradores podem alterar papéis e bloquear/desbloquear acessos.
       </p>
 
-      <div style={{ background: 'var(--bg-primary)', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div style={{ 
+        background: 'var(--bg-primary)', 
+        borderRadius: 'var(--radius)', 
+        border: '1px solid var(--border-color)', 
+        overflowX: 'auto' // responsividade: scroll horizontal se necessário
+      }}>
+        <table style={{ 
+          width: '100%', 
+          borderCollapse: 'collapse',
+          minWidth: '700px' // garante que não fique muito espremido
+        }}>
           <thead style={{ background: 'var(--bg-tertiary)' }}>
             <tr>
-              <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>Nome</th>
-              <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>E-mail</th>
-              <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>Papel</th>
-              <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>Status</th>
-              <th style={{ padding: '0.8rem', textAlign: 'right', fontWeight: 600, color: 'var(--text-secondary)' }}>Ações</th>
+              <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Nome</th>
+              <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>E-mail</th>
+              <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Papel</th>
+              <th style={{ padding: '0.8rem', textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Status</th>
+              <th style={{ padding: '0.8rem', textAlign: 'right', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
             {users.map(u => (
               <tr key={u.id} style={{ borderTop: '1px solid var(--border-color)', opacity: u.blocked ? 0.6 : 1 }}>
-                <td style={{ padding: '0.8rem' }}>{u.name || 'Não informado'}</td>
-                <td style={{ padding: '0.8rem' }}>{u.email}</td>
-                <td style={{ padding: '0.8rem' }}>
+                <td style={{ padding: '0.8rem', verticalAlign: 'middle' }}>{u.name || 'Não informado'}</td>
+                <td style={{ padding: '0.8rem', verticalAlign: 'middle' }}>{u.email}</td>
+                <td style={{ padding: '0.8rem', verticalAlign: 'middle' }}>
                   <span style={{
                     padding: '0.2rem 0.6rem',
                     borderRadius: '12px',
                     fontSize: '0.75rem',
                     fontWeight: 500,
                     background: u.role === 'admin' ? '#EEF2FF' : '#F3F4F6',
-                    color: u.role === 'admin' ? '#4F46E5' : '#6B7280'
+                    color: u.role === 'admin' ? '#4F46E5' : '#6B7280',
+                    whiteSpace: 'nowrap'
                   }}>
                     {u.role === 'admin' ? 'Administrador' : 'Usuário'}
                   </span>
                 </td>
-                <td style={{ padding: '0.8rem' }}>
+                <td style={{ padding: '0.8rem', verticalAlign: 'middle', textAlign: 'center' }}>
                   <span style={{
                     padding: '0.2rem 0.6rem',
                     borderRadius: '12px',
                     fontSize: '0.75rem',
                     fontWeight: 500,
                     background: u.blocked ? '#FEF2F2' : '#ECFDF5',
-                    color: u.blocked ? '#EF4444' : '#10B981'
+                    color: u.blocked ? '#EF4444' : '#10B981',
+                    whiteSpace: 'nowrap',
+                    display: 'inline-block'
                   }}>
-                    {u.blocked ? '🔒 Bloqueado' : '✅ Ativo'}
+                    {u.blocked ? '🔒 Inativo' : '✅ Ativo'}
                   </span>
                 </td>
-                <td style={{ padding: '0.8rem', textAlign: 'right' }}>
-                  {u.id !== user.uid && (
+                <td style={{ padding: '0.8rem', verticalAlign: 'middle', textAlign: 'right' }}>
+                  {u.id !== user.uid ? (
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                       {u.role !== 'admin' && (
                         <button
@@ -130,10 +142,11 @@ export default function Admin() {
                             border: 'none',
                             cursor: 'pointer',
                             color: '#4F46E5',
-                            display: 'flex',
+                            display: 'inline-flex',
                             alignItems: 'center',
                             gap: '0.3rem',
-                            fontSize: '0.8rem'
+                            fontSize: '0.8rem',
+                            whiteSpace: 'nowrap'
                           }}
                         >
                           <Shield size={14} /> Tornar Admin
@@ -148,10 +161,11 @@ export default function Admin() {
                             border: 'none',
                             cursor: 'pointer',
                             color: '#EF4444',
-                            display: 'flex',
+                            display: 'inline-flex',
                             alignItems: 'center',
                             gap: '0.3rem',
-                            fontSize: '0.8rem'
+                            fontSize: '0.8rem',
+                            whiteSpace: 'nowrap'
                           }}
                         >
                           <User size={14} /> Remover Admin
@@ -165,19 +179,19 @@ export default function Admin() {
                           border: 'none',
                           cursor: 'pointer',
                           color: u.blocked ? '#10B981' : '#EF4444',
-                          display: 'flex',
+                          display: 'inline-flex',
                           alignItems: 'center',
                           gap: '0.3rem',
-                          fontSize: '0.8rem'
+                          fontSize: '0.8rem',
+                          whiteSpace: 'nowrap'
                         }}
                       >
                         {u.blocked ? <Unlock size={14} /> : <Ban size={14} />}
                         {u.blocked ? 'Desbloquear' : 'Bloquear'}
                       </button>
                     </div>
-                  )}
-                  {u.id === user.uid && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(Você)</span>
+                  ) : (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>(Você)</span>
                   )}
                 </td>
               </tr>
