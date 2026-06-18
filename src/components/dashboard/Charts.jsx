@@ -1,11 +1,6 @@
-import { 
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-  CartesianGrid, Area, ComposedChart, BarChart, Bar, Legend, 
-  Bar as RechartsBar 
-} from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, ComposedChart, Bar, BarChart, Legend } from 'recharts';
 
 export default function Charts({ data, monthlyData }) {
-  // Dados para o gráfico de barras (sessões por mês)
   const defaultMonthly = [
     { month: 'Jan', sessions: 4 },
     { month: 'Fev', sessions: 6 },
@@ -16,7 +11,6 @@ export default function Charts({ data, monthlyData }) {
   ];
   const monthly = monthlyData && monthlyData.length > 0 ? monthlyData : defaultMonthly;
 
-  // Dados para o gráfico de humor
   const defaultHumor = [
     { date: 'Jan', humor: 6 },
     { date: 'Fev', humor: 7 },
@@ -57,37 +51,11 @@ export default function Charts({ data, monthlyData }) {
         <ResponsiveContainer width="100%" height={200}>
           <ComposedChart data={humor} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-              axisLine={{ stroke: 'var(--border-color)' }}
-              tickLine={false}
-            />
-            <YAxis
-              domain={[0, 10]}
-              tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-              axisLine={false}
-              tickLine={false}
-              ticks={[0, 2, 4, 6, 8, 10]}
-            />
+            <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-color)' }} tickLine={false} />
+            <YAxis domain={[0, 10]} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} ticks={[0, 2, 4, 6, 8, 10]} />
             <Tooltip content={<CustomTooltip type="humor" />} />
-            <Area
-              type="monotone"
-              dataKey="humor"
-              stroke="#4F46E5"
-              strokeWidth={2.5}
-              fill="url(#humorGradient)"
-              dot={{ fill: '#4F46E5', r: 4, strokeWidth: 2, stroke: 'var(--bg-primary)' }}
-              activeDot={{ r: 6, fill: '#4F46E5' }}
-            />
-            <Line
-              type="monotone"
-              dataKey="humor"
-              stroke="#4F46E5"
-              strokeWidth={2.5}
-              dot={{ fill: '#4F46E5', r: 4, strokeWidth: 2, stroke: 'var(--bg-primary)' }}
-              activeDot={{ r: 6, fill: '#4F46E5' }}
-            />
+            <Area type="monotone" dataKey="humor" stroke="#4F46E5" strokeWidth={2.5} fill="url(#humorGradient)" dot={{ fill: '#4F46E5', r: 4, strokeWidth: 2, stroke: 'var(--bg-primary)' }} activeDot={{ r: 6, fill: '#4F46E5' }} />
+            <Line type="monotone" dataKey="humor" stroke="#4F46E5" strokeWidth={2.5} dot={{ fill: '#4F46E5', r: 4, strokeWidth: 2, stroke: 'var(--bg-primary)' }} activeDot={{ r: 6, fill: '#4F46E5' }} />
             <defs>
               <linearGradient id="humorGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#4F46E5" stopOpacity={0.3} />
@@ -106,24 +74,10 @@ export default function Charts({ data, monthlyData }) {
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={monthly} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-            <XAxis
-              dataKey="month"
-              tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-              axisLine={{ stroke: 'var(--border-color)' }}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-              axisLine={false}
-              tickLine={false}
-            />
+            <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-color)' }} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip type="sessions" />} />
-            <Bar
-              dataKey="sessions"
-              fill="url(#barGradient)"
-              radius={[4, 4, 0, 0]}
-              barSize={30}
-            />
+            <Bar dataKey="sessions" fill="url(#barGradient)" radius={[4, 4, 0, 0]} barSize={30} />
             <defs>
               <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#7C3AED" stopOpacity={0.8} />
