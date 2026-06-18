@@ -20,26 +20,23 @@ export default function Reports() {
   };
 
   // ============================================
-  // FUNÇÃO PARA DESENHAR A LOGO NO PDF (CORRIGIDA)
+  // FUNÇÃO PARA DESENHAR A LOGO (COMPATÍVEL COM jsPDF)
   // ============================================
   const drawLogo = (doc, x, y, size = 10) => {
     doc.setDrawColor('#4F46E5');
     doc.setLineWidth(1.5);
-    doc.setFillColor('#4F46E5');
 
-    // Ponto inicial da curva
-    const startX = x;
-    const startY = y + size;
-    doc.moveTo(startX, startY);
-
-    // Primeira curva (onda) usando bezierCurveTo
+    // Ponto inicial
+    doc.moveTo(x, y + size);
+    
+    // Primeira curva (onda)
     const cp1x = x + size * 0.4;
     const cp1y = y + size * 0.1;
     const cp2x = x + size * 0.8;
     const cp2y = y + size * 1.4;
     const endX = x + size * 1.2;
     const endY = y + size;
-    doc.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+    doc.curve(cp1x, cp1y, cp2x, cp2y, endX, endY);
 
     // Segunda curva (onda)
     const cp3x = x + size * 1.6;
@@ -48,7 +45,7 @@ export default function Reports() {
     const cp4y = y + size * 1.4;
     const endX2 = x + size * 2.4;
     const endY2 = y + size;
-    doc.bezierCurveTo(cp3x, cp3y, cp4x, cp4y, endX2, endY2);
+    doc.curve(cp3x, cp3y, cp4x, cp4y, endX2, endY2);
 
     // Traço de caneta (linha reta)
     doc.line(endX2, endY2, x + size * 2.7, y + size * 1.2);
@@ -229,6 +226,10 @@ export default function Reports() {
 
     let totalSessions = 0;
     for (const p of activePatients) {
+      const sessions = await getSessionsByPatient(p.id, user.uid);
+      totalSessions += sessions.length;
+    }
+    for (const p of archivedPatients) {
       const sessions = await getSessionsByPatient(p.id, user.uid);
       totalSessions += sessions.length;
     }
