@@ -40,46 +40,44 @@ export default function Dashboard() {
       if (!user) return;
       try {
         setLoading(true);
-        // 1. Buscar TODOS os pacientes (ativos e arquivados) para contagem
-        const allPatients = await getPatients(user.uid); // sem filtro de status
-        // Mas o getPatients da service filtra por status, então vamos buscar separadamente
+        // 1. Pacientes
         const activePatients = await getPatients(user.uid, 'active');
         const archivedPatients = await getPatients(user.uid, 'archived');
+        const totalPatients = activePatients.length + archivedPatients.length;
 
-        // 2. Buscar sessões de TODOS os pacientes (ativos e arquivados) para contagem mensal/anual
-        let allSessions = [];
-        // Buscar sessões de pacientes ativos
-        for (const patient of activePatients) {
-          const sessions = await getSessionsByPatient(patient.id, user.uid);
-          allSessions = allSessions.concat(sessions);
-        }
-        // Buscar sessões de pacientes arquivados
-        for (const patient of archivedPatients) {
-          const sessions = await getSessionsByPatient(patient.id, user.uid);
-          allSessions = allSessions.concat(sessions);
+        // 2. Buscar TODAS as consultas (appointments) para contagem de sessões realizadas
+        let allAppointments = [];
+        try {
+          allAppointments = await getAppointments(user.uid);
+        } catch (err) {
+          console.warn('Erro ao buscar consultas (índice pendente):', err);
         }
 
+        // Filtrar apenas consultas com status 'done' (Realizada)
+        const doneAppointments = allAppointments.filter(a => a.status === 'done');
+
+        // Contar sessões realizadas no mês e no ano
         const now = new Date();
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const yearStart = new Date(now.getFullYear(), 0, 1);
 
-        const sessionsThisMonth = allSessions.filter(s => {
-          const d = parseDate(s.date);
+        const sessionsThisMonth = doneAppointments.filter(a => {
+          const d = parseDate(a.date);
           return d && d >= monthStart;
         });
-        const sessionsThisYear = allSessions.filter(s => {
-          const d = parseDate(s.date);
+        const sessionsThisYear = doneAppointments.filter(a => {
+          const d = parseDate(a.date);
           return d && d >= yearStart;
         });
 
-        // Dados mensais para o gráfico
+        // Dados mensais para o gráfico de sessões por mês (últimos 6 meses)
         const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
         const last6Months = [];
         for (let i = 5; i >= 0; i--) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          const count = allSessions.filter(s => {
-            const sd = parseDate(s.date);
-            return sd && sd.getFullYear() === d.getFullYear() && sd.getMonth() === d.getMonth();
+          const count = doneAppointments.filter(a => {
+            const ad = parseDate(a.date);
+            return ad && ad.getFullYear() === d.getFullYear() && ad.getMonth() === d.getMonth();
           }).length;
           last6Months.push({
             month: monthNames[d.getMonth()],
@@ -88,13 +86,7 @@ export default function Dashboard() {
         }
         setMonthlySessions(last6Months);
 
-        // 3. Próximas consultas
-        let allAppointments = [];
-        try {
-          allAppointments = await getAppointments(user.uid);
-        } catch (err) {
-          console.warn('Erro ao buscar consultas (índice pendente):', err);
-        }
+        // 3. Próximas consultas (agendadas/confirmadas)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const nextAppointments = allAppointments
@@ -106,7 +98,7 @@ export default function Dashboard() {
           .slice(0, 5);
 
         setStats({
-          totalPatients: allPatients.length || activePatients.length + archivedPatients.length,
+          totalPatients,
           activePatients: activePatients.length,
           archivedPatients: archivedPatients.length,
           sessionsThisMonth: sessionsThisMonth.length,
@@ -114,7 +106,14 @@ export default function Dashboard() {
           nextAppointments
         });
 
-        // 4. Gráfico de humor
+        // 4. Gráfico de humor (a partir de sessões, se houver)
+        // Buscar sessões da coleção 'sessions' para o gráfico de humor
+        let allSessions = [];
+        const allPatients = [...activePatients, ...archivedPatients];
+        for (const patient of allPatients) {
+          const sessions = await getSessionsByPatient(patient.id, user.uid);
+          allSessions = allSessions.concat(sessions);
+        }
         const moodTrend = allSessions
           .filter(s => s.scales?.mood !== undefined)
           .sort((a, b) => {
