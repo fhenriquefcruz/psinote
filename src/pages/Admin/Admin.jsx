@@ -3,7 +3,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { toast } from 'react-toastify';
-import { Shield, User, CheckCircle, XCircle } from 'lucide-react';
+import { Shield, User, CheckCircle, XCircle, Ban, Unlock } from 'lucide-react';
 
 export default function Admin() {
   const { user, userRole, isAdmin } = useAuth();
@@ -47,6 +47,21 @@ export default function Admin() {
     }
   };
 
+  const handleBlockToggle = async (uid, currentlyBlocked) => {
+    setUpdating(uid);
+    try {
+      const userRef = doc(db, 'users', uid);
+      const newBlocked = !currentlyBlocked;
+      await updateDoc(userRef, { blocked: newBlocked });
+      setUsers(prev => prev.map(u => u.id === uid ? { ...u, blocked: newBlocked } : u));
+      toast.success(newBlocked ? 'Usuário bloqueado!' : 'Usuário desbloqueado!');
+    } catch (error) {
+      toast.error('Erro ao alterar bloqueio: ' + error.message);
+    } finally {
+      setUpdating(null);
+    }
+  };
+
   if (!isAdmin) {
     return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Acesso restrito a administradores.</div>;
   }
@@ -54,13 +69,13 @@ export default function Admin() {
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Carregando usuários...</div>;
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '900px', margin: '0 auto' }}>
+    <div style={{ padding: '1.5rem', maxWidth: '1000px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
         <Shield size={28} color="#4F46E5" />
         <h1 style={{ margin: 0 }}>Painel de Administração</h1>
       </div>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-        Gerencie os usuários da plataforma. Apenas administradores podem alterar papéis.
+        Gerencie os usuários da plataforma. Apenas administradores podem alterar papéis e bloquear/desbloquear acessos.
       </p>
 
       <div style={{ background: 'var(--bg-primary)', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
@@ -70,12 +85,13 @@ export default function Admin() {
               <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>Nome</th>
               <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>E-mail</th>
               <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>Papel</th>
+              <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>Status</th>
               <th style={{ padding: '0.8rem', textAlign: 'right', fontWeight: 600, color: 'var(--text-secondary)' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
             {users.map(u => (
-              <tr key={u.id} style={{ borderTop: '1px solid var(--border-color)' }}>
+              <tr key={u.id} style={{ borderTop: '1px solid var(--border-color)', opacity: u.blocked ? 0.6 : 1 }}>
                 <td style={{ padding: '0.8rem' }}>{u.name || 'Não informado'}</td>
                 <td style={{ padding: '0.8rem' }}>{u.email}</td>
                 <td style={{ padding: '0.8rem' }}>
@@ -90,9 +106,21 @@ export default function Admin() {
                     {u.role === 'admin' ? 'Administrador' : 'Usuário'}
                   </span>
                 </td>
+                <td style={{ padding: '0.8rem' }}>
+                  <span style={{
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '12px',
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    background: u.blocked ? '#FEF2F2' : '#ECFDF5',
+                    color: u.blocked ? '#EF4444' : '#10B981'
+                  }}>
+                    {u.blocked ? '🔒 Bloqueado' : '✅ Ativo'}
+                  </span>
+                </td>
                 <td style={{ padding: '0.8rem', textAlign: 'right' }}>
                   {u.id !== user.uid && (
-                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                       {u.role !== 'admin' && (
                         <button
                           onClick={() => handleRoleChange(u.id, 'admin')}
@@ -129,6 +157,23 @@ export default function Admin() {
                           <User size={14} /> Remover Admin
                         </button>
                       )}
+                      <button
+                        onClick={() => handleBlockToggle(u.id, u.blocked || false)}
+                        disabled={updating === u.id}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: u.blocked ? '#10B981' : '#EF4444',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          fontSize: '0.8rem'
+                        }}
+                      >
+                        {u.blocked ? <Unlock size={14} /> : <Ban size={14} />}
+                        {u.blocked ? 'Desbloquear' : 'Bloquear'}
+                      </button>
                     </div>
                   )}
                   {u.id === user.uid && (
