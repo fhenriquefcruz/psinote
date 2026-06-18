@@ -1,11 +1,12 @@
 import { Clock, User, FileText, Calendar, Edit, Trash2, Archive, Upload } from 'lucide-react';
 
-// Mapeia ações para ícones e cores
+// Mapeia ações em português e para os ícones
 const actionMap = {
   'Paciente criado': { icon: User, color: '#4F46E5' },
   'Paciente editado': { icon: Edit, color: '#F59E0B' },
   'Paciente arquivado': { icon: Archive, color: '#6B7280' },
   'Paciente restaurado': { icon: Archive, color: '#10B981' },
+  'Paciente excluído (lixeira)': { icon: Trash2, color: '#EF4444' },
   'Paciente excluído': { icon: Trash2, color: '#EF4444' },
   'Sessão criada': { icon: Calendar, color: '#4F46E5' },
   'Sessão editada': { icon: Edit, color: '#F59E0B' },
@@ -16,6 +17,32 @@ const actionMap = {
   'Consulta realizada': { icon: Calendar, color: '#10B981' },
   'Consulta cancelada': { icon: Calendar, color: '#EF4444' },
   'Consulta reagendada': { icon: Calendar, color: '#F59E0B' },
+  'Consulta confirmada': { icon: Calendar, color: '#4F46E5' },
+  'Consulta faltou': { icon: Calendar, color: '#6B7280' },
+  'Consulta agendada': { icon: Calendar, color: '#10B981' },
+};
+
+// Mapeia ações em inglês para português (caso venham do backend)
+const translateAction = (action) => {
+  const translations = {
+    'Patient created': 'Paciente criado',
+    'Patient edited': 'Paciente editado',
+    'Patient archived': 'Paciente arquivado',
+    'Patient restored': 'Paciente restaurado',
+    'Patient deleted': 'Paciente excluído',
+    'Session created': 'Sessão criada',
+    'Session edited': 'Sessão editada',
+    'Session archived': 'Sessão arquivada',
+    'Document uploaded': 'Documento enviado',
+    'Document removed': 'Documento removido',
+    'Appointment scheduled': 'Consulta agendada',
+    'Appointment done': 'Consulta realizada',
+    'Appointment canceled': 'Consulta cancelada',
+    'Appointment rescheduled': 'Consulta reagendada',
+    'Appointment confirmed': 'Consulta confirmada',
+    'Appointment missed': 'Consulta faltou',
+  };
+  return translations[action] || action;
 };
 
 export default function RecentActivities({ activities }) {
@@ -64,9 +91,11 @@ export default function RecentActivities({ activities }) {
       </h3>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {sorted.map((a, index) => {
-          const meta = actionMap[a.action] || { icon: Clock, color: '#94A3B8' };
+          // Traduz a ação para português
+          const actionPt = translateAction(a.action);
+          const meta = actionMap[actionPt] || { icon: Clock, color: '#94A3B8' };
           const IconComponent = meta.icon;
-          // Extrai nome do paciente dos detalhes, se disponível
+          // Extrai nome do paciente dos detalhes
           let detailText = '';
           if (a.details?.name) {
             detailText = ` - ${a.details.name}`;
@@ -92,7 +121,7 @@ export default function RecentActivities({ activities }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <IconComponent size={16} color={meta.color} />
                 <span style={{ color: 'var(--text-primary)' }}>
-                  {a.action}
+                  {actionPt}
                   {detailText && (
                     <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
                       {detailText}
