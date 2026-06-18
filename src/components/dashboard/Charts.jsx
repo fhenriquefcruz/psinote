@@ -1,4 +1,8 @@
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, ComposedChart, Bar, Legend } from 'recharts';
+import { 
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, 
+  CartesianGrid, Area, ComposedChart, BarChart, Bar, Legend, 
+  Bar as RechartsBar 
+} from 'recharts';
 
 export default function Charts({ data, monthlyData }) {
   // Dados para o gráfico de barras (sessões por mês)
