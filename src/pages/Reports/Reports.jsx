@@ -20,7 +20,7 @@ export default function Reports() {
   };
 
   // ============================================
-  // FUNÇÃO PARA DESENHAR A LOGO (COMPATÍVEL COM jsPDF)
+  // FUNÇÃO PARA DESENHAR A LOGO (SEM bezierCurveTo)
   // ============================================
   const drawLogo = (doc, x, y, size = 10) => {
     doc.setDrawColor('#4F46E5');
@@ -29,7 +29,7 @@ export default function Reports() {
     // Ponto inicial
     doc.moveTo(x, y + size);
     
-    // Primeira curva (onda)
+    // Primeira curva
     const cp1x = x + size * 0.4;
     const cp1y = y + size * 0.1;
     const cp2x = x + size * 0.8;
@@ -38,7 +38,7 @@ export default function Reports() {
     const endY = y + size;
     doc.curve(cp1x, cp1y, cp2x, cp2y, endX, endY);
 
-    // Segunda curva (onda)
+    // Segunda curva
     const cp3x = x + size * 1.6;
     const cp3y = y + size * 0.1;
     const cp4x = x + size * 2.0;
@@ -47,7 +47,7 @@ export default function Reports() {
     const endY2 = y + size;
     doc.curve(cp3x, cp3y, cp4x, cp4y, endX2, endY2);
 
-    // Traço de caneta (linha reta)
+    // Traço de caneta
     doc.line(endX2, endY2, x + size * 2.7, y + size * 1.2);
     doc.line(x + size * 2.7, y + size * 1.2, x + size * 3.0, y + size);
   };
