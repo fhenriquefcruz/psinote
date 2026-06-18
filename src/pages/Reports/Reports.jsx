@@ -20,36 +20,33 @@ export default function Reports() {
   };
 
   // ============================================
-  // FUNÇÃO PARA DESENHAR A LOGO (SEM bezierCurveTo)
+  // FUNÇÃO PARA DESENHAR A LOGO (SEM CURVAS)
+  // Usando apenas linhas retas para garantir compatibilidade
   // ============================================
   const drawLogo = (doc, x, y, size = 10) => {
     doc.setDrawColor('#4F46E5');
     doc.setLineWidth(1.5);
 
-    // Ponto inicial
-    doc.moveTo(x, y + size);
-    
-    // Primeira curva
-    const cp1x = x + size * 0.4;
-    const cp1y = y + size * 0.1;
-    const cp2x = x + size * 0.8;
-    const cp2y = y + size * 1.4;
-    const endX = x + size * 1.2;
-    const endY = y + size;
-    doc.curve(cp1x, cp1y, cp2x, cp2y, endX, endY);
+    // Onda cerebral simplificada com segmentos de reta (zig-zag)
+    // Pontos: (x, y+size) -> (x+size*0.6, y+size*0.2) -> (x+size*1.2, y+size*0.8) -> (x+size*1.8, y+size*0.2) -> (x+size*2.4, y+size)
+    const points = [
+      [x, y + size],
+      [x + size * 0.6, y + size * 0.2],
+      [x + size * 1.2, y + size * 0.8],
+      [x + size * 1.8, y + size * 0.2],
+      [x + size * 2.4, y + size],
+    ];
+    doc.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) {
+      doc.lineTo(points[i][0], points[i][1]);
+    }
+    doc.stroke();
 
-    // Segunda curva
-    const cp3x = x + size * 1.6;
-    const cp3y = y + size * 0.1;
-    const cp4x = x + size * 2.0;
-    const cp4y = y + size * 1.4;
-    const endX2 = x + size * 2.4;
-    const endY2 = y + size;
-    doc.curve(cp3x, cp3y, cp4x, cp4y, endX2, endY2);
-
-    // Traço de caneta
-    doc.line(endX2, endY2, x + size * 2.7, y + size * 1.2);
-    doc.line(x + size * 2.7, y + size * 1.2, x + size * 3.0, y + size);
+    // Traço de caneta (linha reta) no final
+    doc.moveTo(points[points.length-1][0], points[points.length-1][1]);
+    doc.lineTo(x + size * 2.8, y + size * 1.2);
+    doc.lineTo(x + size * 3.0, y + size);
+    doc.stroke();
   };
 
   // ============================================
