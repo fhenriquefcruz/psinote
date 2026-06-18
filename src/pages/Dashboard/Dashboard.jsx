@@ -8,26 +8,14 @@ import StatsCards from '../../components/dashboard/StatsCards';
 import Charts from '../../components/dashboard/Charts';
 import RecentActivities from '../../components/dashboard/RecentActivities';
 
-// Função robusta para converter qualquer formato de data para Date
 const parseDate = (value) => {
   if (!value) return null;
-  
-  // Se for Timestamp do Firestore
-  if (value?.toDate && typeof value.toDate === 'function') {
-    return value.toDate();
-  }
-  
-  // Se for string ISO ou número timestamp
+  if (value?.toDate && typeof value.toDate === 'function') return value.toDate();
   if (typeof value === 'string' || typeof value === 'number') {
     const d = new Date(value);
     if (!isNaN(d.getTime())) return d;
   }
-  
-  // Se já for objeto Date
-  if (value instanceof Date && !isNaN(value.getTime())) {
-    return value;
-  }
-  
+  if (value instanceof Date && !isNaN(value.getTime())) return value;
   return null;
 };
 
@@ -43,6 +31,7 @@ export default function Dashboard() {
   });
   const [activities, setActivities] = useState([]);
   const [moodData, setMoodData] = useState([]);
+  const [monthlySessions, setMonthlySessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activitiesError, setActivitiesError] = useState(false);
 
@@ -51,12 +40,10 @@ export default function Dashboard() {
       if (!user) return;
       try {
         setLoading(true);
-        // 1. Pacientes
         const patients = await getPatients(user.uid);
         const active = patients.filter(p => p.status === 'active');
         const archived = patients.filter(p => p.status === 'archived');
 
-        // 2. Sessões – busca todas as sessões de todos os pacientes ativos
         let allSessions = [];
         for (const patient of active) {
           const sessions = await getSessionsByPatient(patient.id, user.uid);
@@ -67,7 +54,6 @@ export default function Dashboard() {
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const yearStart = new Date(now.getFullYear(), 0, 1);
 
-        // 🔥 Filtragem com parseDate robusto
         const sessionsThisMonth = allSessions.filter(s => {
           const d = parseDate(s.date);
           return d && d >= monthStart;
@@ -77,7 +63,23 @@ export default function Dashboard() {
           return d && d >= yearStart;
         });
 
-        // 3. Próximas consultas (busca todas, filtra por hoje em diante)
+        // Dados mensais para o gráfico de barras (últimos 6 meses)
+        const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const last6Months = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const monthKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+          const count = allSessions.filter(s => {
+            const sd = parseDate(s.date);
+            return sd && sd.getFullYear() === d.getFullYear() && sd.getMonth() === d.getMonth();
+          }).length;
+          last6Months.push({
+            month: monthNames[d.getMonth()],
+            sessions: count
+          });
+        }
+        setMonthlySessions(last6Months);
+
         let allAppointments = [];
         try {
           allAppointments = await getAppointments(user.uid);
@@ -103,7 +105,6 @@ export default function Dashboard() {
           nextAppointments
         });
 
-        // 4. Gráfico de humor
         const moodTrend = allSessions
           .filter(s => s.scales?.mood !== undefined)
           .sort((a, b) => {
@@ -121,7 +122,6 @@ export default function Dashboard() {
           });
         setMoodData(moodTrend);
 
-        // 5. Atividades
         try {
           const recentActivities = await getRecentActivities(user.uid, 10);
           setActivities(recentActivities);
@@ -161,8 +161,7 @@ export default function Dashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
         <div style={{ background: 'var(--bg-primary)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>📈 Evolução do Humor</h3>
-          {moodData.length > 0 ? <Charts data={moodData} /> : <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>Nenhum dado de humor registrado</p>}
+          <Charts data={moodData} monthlyData={monthlySessions} />
         </div>
         <div style={{ background: 'var(--bg-primary)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
           <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>📅 Próximas Consultas</h3>
