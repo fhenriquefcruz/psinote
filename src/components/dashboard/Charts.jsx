@@ -1,23 +1,27 @@
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, ComposedChart, Bar, BarChart, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, ComposedChart, Bar, BarChart } from 'recharts';
 
 export default function Charts({ data, monthlyData }) {
+  // Se não houver dados de humor, mostrar mensagem
+  const hasHumorData = data && data.length > 0 && data.some(d => d.humor > 0);
+  const hasMonthlyData = monthlyData && monthlyData.length > 0 && monthlyData.some(d => d.sessions > 0);
+
   const defaultMonthly = [
-    { month: 'Jan', sessions: 4 },
-    { month: 'Fev', sessions: 6 },
-    { month: 'Mar', sessions: 3 },
-    { month: 'Abr', sessions: 8 },
-    { month: 'Mai', sessions: 5 },
-    { month: 'Jun', sessions: 7 },
+    { month: 'Jan', sessions: 0 },
+    { month: 'Fev', sessions: 0 },
+    { month: 'Mar', sessions: 0 },
+    { month: 'Abr', sessions: 0 },
+    { month: 'Mai', sessions: 0 },
+    { month: 'Jun', sessions: 0 },
   ];
   const monthly = monthlyData && monthlyData.length > 0 ? monthlyData : defaultMonthly;
 
   const defaultHumor = [
-    { date: 'Jan', humor: 6 },
-    { date: 'Fev', humor: 7 },
-    { date: 'Mar', humor: 5 },
-    { date: 'Abr', humor: 8 },
-    { date: 'Mai', humor: 7 },
-    { date: 'Jun', humor: 9 },
+    { date: 'Jan', humor: 0 },
+    { date: 'Fev', humor: 0 },
+    { date: 'Mar', humor: 0 },
+    { date: 'Abr', humor: 0 },
+    { date: 'Mai', humor: 0 },
+    { date: 'Jun', humor: 0 },
   ];
   const humor = data && data.length > 0 ? data : defaultHumor;
 
@@ -48,22 +52,27 @@ export default function Charts({ data, monthlyData }) {
         <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
           📈 Evolução do Humor (últimas 10 sessões)
         </h4>
-        <ResponsiveContainer width="100%" height={200}>
-          <ComposedChart data={humor} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-color)' }} tickLine={false} />
-            <YAxis domain={[0, 10]} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} ticks={[0, 2, 4, 6, 8, 10]} />
-            <Tooltip content={<CustomTooltip type="humor" />} />
-            <Area type="monotone" dataKey="humor" stroke="#4F46E5" strokeWidth={2.5} fill="url(#humorGradient)" dot={{ fill: '#4F46E5', r: 4, strokeWidth: 2, stroke: 'var(--bg-primary)' }} activeDot={{ r: 6, fill: '#4F46E5' }} />
-            <Line type="monotone" dataKey="humor" stroke="#4F46E5" strokeWidth={2.5} dot={{ fill: '#4F46E5', r: 4, strokeWidth: 2, stroke: 'var(--bg-primary)' }} activeDot={{ r: 6, fill: '#4F46E5' }} />
-            <defs>
-              <linearGradient id="humorGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#4F46E5" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#4F46E5" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-          </ComposedChart>
-        </ResponsiveContainer>
+        {!hasHumorData ? (
+          <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>
+            Nenhum dado de humor registrado ainda.
+          </p>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <ComposedChart data={humor} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-color)' }} tickLine={false} />
+              <YAxis domain={[0, 10]} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} ticks={[0, 2, 4, 6, 8, 10]} />
+              <Tooltip content={<CustomTooltip type="humor" />} />
+              <Area type="monotone" dataKey="humor" stroke="#4F46E5" strokeWidth={2.5} fill="url(#humorGradient)" dot={{ fill: '#4F46E5', r: 4, strokeWidth: 2, stroke: 'var(--bg-primary)' }} activeDot={{ r: 6, fill: '#4F46E5' }} />
+              <defs>
+                <linearGradient id="humorGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#4F46E5" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#4F46E5" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+            </ComposedChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Gráfico de Sessões por Mês */}
