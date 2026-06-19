@@ -3,9 +3,12 @@ import { useAuth } from '../hooks/useAuth';
 import MainLayout from '../layouts/MainLayout/MainLayout';
 import AuthLayout from '../layouts/AuthLayout/AuthLayout';
 
+// Páginas públicas
 import Login from '../pages/Login/Login';
 import Register from '../pages/Register/Register';
 import ForgotPassword from '../pages/ForgotPassword/ForgotPassword';
+
+// Páginas privadas
 import Dashboard from '../pages/Dashboard/Dashboard';
 import Patients from '../pages/Patients/Patients';
 import PatientProfile from '../pages/Patients/PatientProfile';
@@ -16,6 +19,9 @@ import Documents from '../pages/Documents/Documents';
 import Reports from '../pages/Reports/Reports';
 import Settings from '../pages/Settings/Settings';
 import Admin from '../pages/Admin/Admin';
+
+// ⬇️ Importe o DocumentGeneratorPage
+import DocumentGeneratorPage from '../pages/Documents/DocumentGeneratorPage';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -35,12 +41,14 @@ export default function AppRoutes() {
   return (
     <BrowserRouter basename="/psinote">
       <Routes>
+        {/* Rotas públicas */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
         </Route>
 
+        {/* Rotas privadas */}
         <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
           <Route path="/" element={<Navigate to="/dashboard" />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -51,10 +59,11 @@ export default function AppRoutes() {
           <Route path="/sessions" element={<Sessions />} />
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/documents" element={<Documents />} />
+          <Route path="/documents/generate" element={<DocumentGeneratorPage />} />
+          <Route path="/documents/generate/:patientId" element={<DocumentGeneratorPage />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
-          <Route path="/documents/generate/:patientId" element={<DocumentGeneratorPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
