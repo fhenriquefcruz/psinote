@@ -54,6 +54,7 @@ export default function AppRoutes() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+          <Route path="/documents/generate/:patientId" element={<DocumentGeneratorPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
