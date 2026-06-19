@@ -1,19 +1,15 @@
 // src/pages/Documents/DocumentGeneratorPage.jsx
-import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import DocumentGenerator from '../../components/documents/DocumentGenerator';
 
 export default function DocumentGeneratorPage() {
   const { patientId } = useParams();
-  const [open, setOpen] = useState(true);
-
-  if (!open) return null;
 
   return (
-    <div style={{ padding: '1.5rem' }}>
+    <div style={{ padding: '1.5rem', maxWidth: '900px', margin: '0 auto' }}>
       <DocumentGenerator 
         patientId={patientId} 
-        onClose={() => setOpen(false)} 
+        onClose={() => window.history.back()} 
       />
     </div>
   );
