@@ -37,7 +37,10 @@ const clinicalRecord = (owner, overrides = {}) => {
     ...overrides
   };
 
-  if (overrides.patientId === undefined) {
+  if (
+    Object.prototype.hasOwnProperty.call(overrides, 'patientId')
+    && overrides.patientId === undefined
+  ) {
     delete record.patientId;
   }
 
