@@ -57,7 +57,7 @@ test('agenda has no automated WCAG A/AA violations', async ({ page }) => {
 test('documents center has no automated WCAG A/AA violations', async ({ page }) => {
   await registerSyntheticUser(page);
   await page.goto('documents');
-  await expect(page.getByRole('heading', { name: 'Documentos' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Documentos', exact: true })).toBeVisible();
 
   await assertA11y(page);
 });
