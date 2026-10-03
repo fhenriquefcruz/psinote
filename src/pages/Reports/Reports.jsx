@@ -53,7 +53,7 @@ export default function Reports() {
   // RELATÓRIO DO PACIENTE
   // ============================================
   const generatePatientPDF = async (patientId) => {
-    const patient = await getPatientById(patientId);
+    const patient = await getPatientById(patientId, user.uid);
     const sessions = await getSessionsByPatient(patientId, user.uid);
 
     const doc = new jsPDF('p', 'mm', 'a4');
