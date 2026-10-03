@@ -180,6 +180,157 @@ service cloud.firestore {
         && snapshot.get('reopenedAt', null) == parent.get('reopenedAt', null);
     }
 
+    function validAppointmentCreate() {
+      return ownsIncomingRecord()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.status == 'scheduled'
+        && request.resource.data.patientId is string
+        && request.resource.data.date is string
+        && request.resource.data.time is string
+        && request.resource.data.get('modality', 'in_person') in [
+          'in_person',
+          'online',
+          'other'
+        ];
+    }
+
+    function validAppointmentStateTransition() {
+      let oldStatus = resource.data.get('status', 'scheduled');
+      let newStatus = request.resource.data.get('status', oldStatus);
+
+      return (
+          oldStatus == 'scheduled'
+          && newStatus in [
+            'scheduled',
+            'confirmed',
+            'done',
+            'canceled',
+            'missed',
+            'rescheduled'
+          ]
+        )
+        || (
+          oldStatus == 'confirmed'
+          && newStatus in [
+            'confirmed',
+            'done',
+            'canceled',
+            'missed',
+            'rescheduled'
+          ]
+        )
+        || (
+          oldStatus == 'done'
+          && newStatus == 'done'
+        )
+        || (
+          oldStatus == 'canceled'
+          && newStatus == 'canceled'
+        )
+        || (
+          oldStatus == 'missed'
+          && newStatus == 'missed'
+        )
+        || (
+          oldStatus == 'rescheduled'
+          && newStatus == 'rescheduled'
+        );
+    }
+
+    function validAppointmentRecordLink() {
+      let oldSessionId = resource.data.get('sessionId', null);
+      let newSessionId = request.resource.data.get('sessionId', oldSessionId);
+      let oldCompletedAt = resource.data.get('recordCompletedAt', null);
+      let newCompletedAt = request.resource.data.get(
+        'recordCompletedAt',
+        oldCompletedAt
+      );
+
+      return (
+          newSessionId == oldSessionId
+          && newCompletedAt == oldCompletedAt
+        )
+        || (
+          resource.data.get('status', 'scheduled') == 'done'
+          && request.resource.data.get('status', 'scheduled') == 'done'
+          && oldSessionId == null
+          && newSessionId is string
+          && newCompletedAt != null
+          && exists(
+            /databases/$(database)/documents/sessions/$(newSessionId)
+          )
+          && get(
+            /databases/$(database)/documents/sessions/$(newSessionId)
+          ).data.psychologistId == request.auth.uid
+          && get(
+            /databases/$(database)/documents/sessions/$(newSessionId)
+          ).data.patientId == resource.data.patientId
+          && get(
+            /databases/$(database)/documents/sessions/$(newSessionId)
+          ).data.status == 'finalized'
+        );
+    }
+
+    function validAppointmentChangedFields() {
+      let status = resource.data.get('status', 'scheduled');
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+
+      return (
+          status in ['scheduled', 'confirmed']
+          && affected.hasOnly([
+            'time',
+            'duration',
+            'modality',
+            'notes',
+            'status',
+            'cancelReason',
+            'rescheduledAt',
+            'rescheduledToId',
+            'updatedAt',
+            'updatedBy'
+          ])
+        )
+        || (
+          status == 'done'
+          && affected.hasOnly([
+            'recordCompletedAt',
+            'sessionId',
+            'updatedAt',
+            'updatedBy'
+          ])
+        )
+        || (
+          status in ['canceled', 'missed']
+          && affected.hasOnly([
+            'rescheduledAt',
+            'rescheduledToId',
+            'updatedAt',
+            'updatedBy'
+          ])
+        )
+        || (
+          status == 'rescheduled'
+          && affected.size() == 0
+        );
+    }
+
+    function validAppointmentUpdate() {
+      return ownsExistingRecord()
+        && preservesOwnership()
+        && preservesPatientLink()
+        && preservesCreationMetadata()
+        && request.resource.data.date == resource.data.date
+        && request.resource.data.get('recurrence', null)
+          == resource.data.get('recurrence', null)
+        && request.resource.data.get('rescheduledFromId', null)
+          == resource.data.get('rescheduledFromId', null)
+        && request.resource.data.updatedBy == request.auth.uid
+        && validAppointmentStateTransition()
+        && validAppointmentRecordLink()
+        && validAppointmentChangedFields();
+    }
+
     function safeActivityPayload() {
       return request.resource.data.keys().hasOnly([
           'psychologistId',
@@ -248,12 +399,9 @@ service cloud.firestore {
     }
 
     match /appointments/{recordId} {
-      allow create: if ownsIncomingRecord();
+      allow create: if validAppointmentCreate();
       allow read: if ownsExistingRecord();
-      allow update: if ownsExistingRecord()
-        && preservesOwnership()
-        && preservesPatientLink()
-        && preservesCreationMetadata();
+      allow update: if validAppointmentUpdate();
       allow delete: if false;
     }
 

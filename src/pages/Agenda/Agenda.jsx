@@ -1,286 +1,1029 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import { getAppointments, createAppointment, updateAppointmentStatus, rescheduleAppointment } from '../../services/appointmentService';
-import { getPatients } from '../../services/patientService';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Calendar,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  FileText,
+  Plus,
+  Repeat,
+  Video,
+  X
+} from 'lucide-react';
 import { toast } from 'react-toastify';
-import { Plus, X, Check, Calendar as CalendarIcon, Clock as ClockIcon, Search } from 'lucide-react';
-import { parseDateValue, toDateInputValue } from '../../utils/date';
+import { useAuth } from '../../hooks/useAuth';
+import {
+  createAppointmentSeries,
+  getAppointments,
+  rescheduleAppointment,
+  updateAppointmentStatus
+} from '../../services/appointmentService';
+import { getPatients } from '../../services/patientService';
+import {
+  addDays,
+  agendaRange,
+  dateKey,
+  formatAgendaRange,
+  isSameDay,
+  monthGridDays,
+  moveAgendaCursor,
+  startOfWeek
+} from '../../utils/calendar';
+import { parseDateValue } from '../../utils/date';
+import styles from './Agenda.module.css';
+
+const STATUS_META = {
+  scheduled: { label: 'Agendado', badge: 'badge-warning' },
+  confirmed: { label: 'Confirmado', badge: 'badge-info' },
+  done: { label: 'Realizado', badge: 'badge-success' },
+  canceled: { label: 'Cancelado', badge: 'badge-danger' },
+  rescheduled: { label: 'Remarcado', badge: 'badge-neutral' },
+  missed: { label: 'Não compareceu', badge: 'badge-neutral' }
+};
+
+const MODALITY_META = {
+  in_person: { label: 'Presencial', icon: Calendar },
+  online: { label: 'On-line', icon: Video },
+  other: { label: 'Outro', icon: Calendar }
+};
+
+const EMPTY_FORM = {
+  patientId: '',
+  date: dateKey(new Date()),
+  time: '',
+  duration: 50,
+  modality: 'in_person',
+  notes: '',
+  recurrenceKind: 'none',
+  recurrenceOccurrences: 4
+};
+
+const sortAppointments = (items) =>
+  [...items].sort((left, right) => {
+    const dateCompare = String(left.date || '').localeCompare(String(right.date || ''));
+    if (dateCompare !== 0) return dateCompare;
+    return String(left.time || '').localeCompare(String(right.time || ''));
+  });
 
 export default function Agenda() {
   const { user } = useAuth();
+  const [view, setView] = useState('week');
+  const [cursor, setCursor] = useState(new Date());
   const [appointments, setAppointments] = useState([]);
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    patientId: '',
-    date: '',
-    time: '',
-    duration: 50,
-    notes: ''
-  });
-  const [filter, setFilter] = useState('all');
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [statusFilter, setStatusFilter] = useState('all');
   const [patientFilter, setPatientFilter] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredPatients, setFilteredPatients] = useState([]);
-  const [rescheduleData, setRescheduleData] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [rescheduleTarget, setRescheduleTarget] = useState(null);
   const [rescheduleForm, setRescheduleForm] = useState({ date: '', time: '' });
+  const [saving, setSaving] = useState(false);
 
-  const loadData = async () => {
+  const range = useMemo(() => agendaRange(view, cursor), [view, cursor]);
+
+  const loadAppointments = async () => {
+    if (!user) return;
+    setLoading(true);
     try {
-      const [apps, pats] = await Promise.all([
-        getAppointments(user.uid),
-        getPatients(user.uid)
-      ]);
-      setAppointments(apps);
-      setPatients(pats);
-      setFilteredPatients(pats.filter(p => p.status === 'active'));
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar dados');
+      const list = await getAppointments(user.uid, range.start, range.end);
+      setAppointments(sortAppointments(list));
+    } catch {
+      toast.error('Não foi possível carregar a agenda.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
-  }, [user]);
+    if (!user) return;
+    loadAppointments();
+  }, [user, range.start, range.end]);
 
   useEffect(() => {
-    if (searchTerm.length >= 2) {
-      const filtered = patients.filter(p => 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) && 
-        p.status === 'active'
-      );
-      setFilteredPatients(filtered);
-    } else {
-      setFilteredPatients(patients.filter(p => p.status === 'active'));
-    }
-  }, [searchTerm, patients]);
+    if (!user) return;
+    getPatients(user.uid, 'active')
+      .then(setPatients)
+      .catch(() => toast.error('Não foi possível carregar os pacientes.'));
+  }, [user]);
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    if (!formData.patientId || !formData.date || !formData.time) {
-      toast.warning('Preencha todos os campos obrigatórios');
+  const filteredAppointments = useMemo(
+    () =>
+      appointments.filter((appointment) => {
+        if (statusFilter !== 'all' && appointment.status !== statusFilter) {
+          return false;
+        }
+        if (patientFilter && appointment.patientId !== patientFilter) {
+          return false;
+        }
+        return true;
+      }),
+    [appointments, patientFilter, statusFilter]
+  );
+
+  const openCreate = (date = cursor) => {
+    setForm({
+      ...EMPTY_FORM,
+      date: dateKey(date) || dateKey(new Date())
+    });
+    setShowCreate(true);
+  };
+
+  const handleCreate = async (event) => {
+    event.preventDefault();
+
+    if (!form.patientId || !form.date || !form.time) {
+      toast.warning('Selecione paciente, data e horário.');
       return;
     }
+
+    const patient = patients.find((item) => item.id === form.patientId);
+    if (!patient) {
+      toast.warning('Selecione um paciente válido.');
+      return;
+    }
+
+    setSaving(true);
     try {
-      const patient = patients.find(p => p.id === formData.patientId);
-      await createAppointment(user.uid, {
-        ...formData,
-        patientName: patient?.name || 'Paciente'
-      });
-      toast.success('Consulta agendada com sucesso!');
-      setShowForm(false);
-      setFormData({ patientId: '', date: '', time: '', duration: 50, notes: '' });
-      await loadData();
+      const created = await createAppointmentSeries(
+        user.uid,
+        {
+          patientId: form.patientId,
+          patientName: patient.name,
+          date: form.date,
+          time: form.time,
+          duration: form.duration,
+          modality: form.modality,
+          notes: form.notes
+        },
+        {
+          kind: form.recurrenceKind,
+          occurrences:
+            form.recurrenceKind === 'none'
+              ? 1
+              : Number(form.recurrenceOccurrences)
+        }
+      );
+
+      toast.success(
+        created.length === 1
+          ? 'Atendimento agendado.'
+          : created.length + ' atendimentos recorrentes criados.'
+      );
+      setShowCreate(false);
+      await loadAppointments();
     } catch (error) {
-      toast.error('Erro ao agendar: ' + error.message);
+      toast.error('Não foi possível agendar: ' + error.message);
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleStatus = async (id, status) => {
-    let cancelReason = '';
+  const changeStatus = async (appointment, status) => {
     if (status === 'canceled') {
-      cancelReason = prompt('Motivo do cancelamento:');
-      if (cancelReason === null) return;
-      if (!cancelReason.trim()) {
-        toast.warning('É obrigatório informar o motivo do cancelamento');
-        return;
-      }
+      setCancelTarget(appointment);
+      setCancelReason('');
+      return;
     }
+
     try {
-      await updateAppointmentStatus(id, user.uid, status, cancelReason);
-      toast.success(`Consulta ${status === 'done' ? 'realizada' : status === 'canceled' ? 'cancelada' : status}`);
-      await loadData();
+      await updateAppointmentStatus(appointment.id, user.uid, status);
+      toast.success('Status atualizado.');
+      await loadAppointments();
     } catch (error) {
-      toast.error('Erro ao atualizar status: ' + error.message);
+      toast.error(error.message);
     }
   };
 
-  const handleReschedule = (appointment) => {
-    const dateObj = parseDateValue(appointment.date);
-    setRescheduleData(appointment);
+  const confirmCancel = async (event) => {
+    event.preventDefault();
+    if (!cancelReason.trim()) {
+      toast.warning('Informe o motivo do cancelamento.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updateAppointmentStatus(
+        cancelTarget.id,
+        user.uid,
+        'canceled',
+        cancelReason
+      );
+      setCancelTarget(null);
+      setCancelReason('');
+      toast.success('Atendimento cancelado.');
+      await loadAppointments();
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openReschedule = (appointment) => {
+    setRescheduleTarget(appointment);
     setRescheduleForm({
-      date: dateObj ? toDateInputValue(dateObj) : '',
+      date: dateKey(appointment.date),
       time: appointment.time || ''
     });
   };
 
-  const confirmReschedule = async (e) => {
-    e.preventDefault();
+  const confirmReschedule = async (event) => {
+    event.preventDefault();
+
     if (!rescheduleForm.date || !rescheduleForm.time) {
-      toast.warning('Preencha a nova data e hora');
+      toast.warning('Informe a nova data e o horário.');
       return;
     }
+
+    setSaving(true);
     try {
-      await rescheduleAppointment(rescheduleData.id, user.uid, rescheduleForm.date, rescheduleForm.time);
-      toast.success('Consulta reagendada com sucesso!');
-      setRescheduleData(null);
-      await loadData();
+      await rescheduleAppointment(
+        rescheduleTarget.id,
+        user.uid,
+        rescheduleForm.date,
+        rescheduleForm.time
+      );
+      setRescheduleTarget(null);
+      toast.success('Novo agendamento criado; o anterior foi preservado.');
+      await loadAppointments();
     } catch (error) {
-      toast.error('Erro ao reagendar: ' + error.message);
+      toast.error('Não foi possível remarcar: ' + error.message);
+    } finally {
+      setSaving(false);
     }
   };
 
-
-  const filteredAppointments = appointments.filter(a => {
-    if (filter !== 'all' && a.status !== filter) return false;
-    if (patientFilter && a.patientId !== patientFilter) return false;
-    return true;
-  });
-
-  const getPatientStats = (patientId) => {
-    const patientAppointments = appointments.filter(a => a.patientId === patientId);
-    const done = patientAppointments.filter(a => a.status === 'done').length;
-    const canceled = patientAppointments.filter(a => a.status === 'canceled').length;
-    const missed = patientAppointments.filter(a => a.status === 'missed').length;
-    return { done, canceled, missed };
+  const appointmentActions = {
+    changeStatus,
+    openReschedule
   };
 
-  const statusLabels = {
-    scheduled: { label: 'Agendada', color: '#F59E0B', bg: '#FFFBEB' },
-    confirmed: { label: 'Confirmada', color: '#4F46E5', bg: '#EEF2FF' },
-    done: { label: 'Realizada', color: '#10B981', bg: '#ECFDF5' },
-    canceled: { label: 'Cancelada', color: '#EF4444', bg: '#FEF2F2' },
-    missed: { label: 'Faltou', color: '#6B7280', bg: '#F3F4F6' }
-  };
+  return (
+    <main className="page-shell">
+      <header className="page-header">
+        <div>
+          <div className="section-kicker">Hoje</div>
+          <h1 className="page-title">Agenda</h1>
+          <p className="page-subtitle">
+            Organize o trabalho do dia, confirme atendimentos e transforme consultas realizadas em registros.
+          </p>
+        </div>
 
-  if (loading) {
-    return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Carregando agenda...</div>;
+        <button
+          type="button"
+          className="button button-primary"
+          onClick={() => openCreate(cursor)}
+        >
+          <Plus size={18} aria-hidden="true" />
+          Novo agendamento
+        </button>
+      </header>
+
+      <section className={'surface ' + styles.toolbar} aria-label="Controles da agenda">
+        <div className={styles.navigation}>
+          <button
+            type="button"
+            className={styles.iconButton}
+            onClick={() => setCursor(moveAgendaCursor(view, cursor, -1))}
+            aria-label="Período anterior"
+          >
+            <ChevronLeft size={19} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => setCursor(new Date())}
+          >
+            Hoje
+          </button>
+          <button
+            type="button"
+            className={styles.iconButton}
+            onClick={() => setCursor(moveAgendaCursor(view, cursor, 1))}
+            aria-label="Próximo período"
+          >
+            <ChevronRight size={19} aria-hidden="true" />
+          </button>
+          <strong className={styles.rangeLabel}>{formatAgendaRange(view, cursor)}</strong>
+        </div>
+
+        <div className={styles.viewSwitch} aria-label="Modo de visualização">
+          {[
+            ['day', 'Dia'],
+            ['week', 'Semana'],
+            ['month', 'Mês'],
+            ['list', 'Lista']
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={view === value ? styles.viewActive : styles.viewButton}
+              onClick={() => setView(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.filterBar} aria-label="Filtros da agenda">
+        <select
+          className="select"
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          aria-label="Filtrar por status"
+        >
+          <option value="all">Todos os status</option>
+          {Object.entries(STATUS_META).map(([value, meta]) => (
+            <option key={value} value={value}>{meta.label}</option>
+          ))}
+        </select>
+
+        <select
+          className="select"
+          value={patientFilter}
+          onChange={(event) => setPatientFilter(event.target.value)}
+          aria-label="Filtrar por paciente"
+        >
+          <option value="">Todos os pacientes</option>
+          {patients.map((patient) => (
+            <option key={patient.id} value={patient.id}>{patient.name}</option>
+          ))}
+        </select>
+      </section>
+
+      {loading ? (
+        <div className="surface empty-state">Carregando período...</div>
+      ) : (
+        <AgendaView
+          view={view}
+          cursor={cursor}
+          appointments={filteredAppointments}
+          onOpenCreate={openCreate}
+          onOpenDay={(date) => {
+            setCursor(date);
+            setView('day');
+          }}
+          actions={appointmentActions}
+        />
+      )}
+
+      {showCreate && (
+        <CreateAppointmentDialog
+          form={form}
+          setForm={setForm}
+          patients={patients}
+          onClose={() => setShowCreate(false)}
+          onSubmit={handleCreate}
+          saving={saving}
+        />
+      )}
+
+      {cancelTarget && (
+        <Dialog title="Cancelar atendimento" onClose={() => setCancelTarget(null)}>
+          <form className={styles.dialogForm} onSubmit={confirmCancel}>
+            <p>
+              {cancelTarget.patientName} • {cancelTarget.date} às {cancelTarget.time}
+            </p>
+            <div className="field">
+              <label className="field-label" htmlFor="cancel-reason">
+                Motivo administrativo
+              </label>
+              <textarea
+                id="cancel-reason"
+                className="textarea"
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                rows={3}
+                autoFocus
+              />
+            </div>
+            <div className={styles.dialogActions}>
+              <button type="button" className="button button-secondary" onClick={() => setCancelTarget(null)}>
+                Voltar
+              </button>
+              <button type="submit" className="button button-danger" disabled={saving}>
+                Confirmar cancelamento
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+
+      {rescheduleTarget && (
+        <Dialog title="Remarcar atendimento" onClose={() => setRescheduleTarget(null)}>
+          <form className={styles.dialogForm} onSubmit={confirmReschedule}>
+            <p>
+              O compromisso atual será preservado no histórico e um novo agendamento será criado.
+            </p>
+            <div className={styles.twoFields}>
+              <div className="field">
+                <label className="field-label" htmlFor="reschedule-date">Nova data</label>
+                <input
+                  id="reschedule-date"
+                  type="date"
+                  className="input"
+                  value={rescheduleForm.date}
+                  onChange={(event) =>
+                    setRescheduleForm((current) => ({
+                      ...current,
+                      date: event.target.value
+                    }))
+                  }
+                />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="reschedule-time">Novo horário</label>
+                <input
+                  id="reschedule-time"
+                  type="time"
+                  className="input"
+                  value={rescheduleForm.time}
+                  onChange={(event) =>
+                    setRescheduleForm((current) => ({
+                      ...current,
+                      time: event.target.value
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <div className={styles.dialogActions}>
+              <button type="button" className="button button-secondary" onClick={() => setRescheduleTarget(null)}>
+                Voltar
+              </button>
+              <button type="submit" className="button button-primary" disabled={saving}>
+                Criar novo agendamento
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+    </main>
+  );
+}
+
+function AgendaView({
+  view,
+  cursor,
+  appointments,
+  onOpenCreate,
+  onOpenDay,
+  actions
+}) {
+  if (view === 'day') {
+    return (
+      <DayView
+        date={cursor}
+        appointments={appointments}
+        onOpenCreate={onOpenCreate}
+        actions={actions}
+      />
+    );
+  }
+
+  if (view === 'month') {
+    return (
+      <MonthView
+        cursor={cursor}
+        appointments={appointments}
+        onOpenDay={onOpenDay}
+        onOpenCreate={onOpenCreate}
+      />
+    );
+  }
+
+  if (view === 'list') {
+    return <ListView appointments={appointments} actions={actions} />;
   }
 
   return (
-    <div style={{ padding: '1.5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.5rem' }}>
+    <WeekView
+      cursor={cursor}
+      appointments={appointments}
+      onOpenCreate={onOpenCreate}
+      actions={actions}
+    />
+  );
+}
+
+function DayView({ date, appointments, onOpenCreate, actions }) {
+  const dayAppointments = appointments.filter((item) => isSameDay(item.date, date));
+
+  return (
+    <section className="surface">
+      <div className="surface-header">
         <div>
-          <h1 style={{ margin: 0 }}>📅 Agenda</h1>
-          <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
-            {appointments.filter(a => a.status === 'scheduled' || a.status === 'confirmed').length} consultas agendadas
-          </p>
+          <div className="section-kicker">Dia</div>
+          <h2 className="section-title">
+            {parseDateValue(date)?.toLocaleDateString('pt-BR', {
+              weekday: 'long',
+              day: '2-digit',
+              month: 'long'
+            })}
+          </h2>
         </div>
-        <button onClick={() => setShowForm(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500, transition: 'var(--transition)' }}>
-          <Plus size={18} /> Nova Consulta
+        <button type="button" className="button button-secondary" onClick={() => onOpenCreate(date)}>
+          <Plus size={16} aria-hidden="true" />
+          Agendar neste dia
         </button>
       </div>
-
-      {showForm && (
-        <div style={{ background: 'var(--bg-primary)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', marginBottom: '1.5rem', boxShadow: 'var(--shadow-md)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3 style={{ margin: 0 }}>Nova Consulta</h3>
-            <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
+      <div className={styles.dayList}>
+        {dayAppointments.length ? (
+          dayAppointments.map((appointment) => (
+            <AppointmentCard
+              key={appointment.id}
+              appointment={appointment}
+              actions={actions}
+            />
+          ))
+        ) : (
+          <div className="empty-state">
+            <Calendar size={28} aria-hidden="true" />
+            <span>Nenhum atendimento neste dia.</span>
           </div>
-          <form onSubmit={handleCreate} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>Paciente *</label>
-              <div style={{ position: 'relative' }}>
-                <input type="text" placeholder="Digite o nome do paciente..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-                <Search size={16} style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                {searchTerm.length >= 2 && filteredPatients.length > 0 && (
-                  <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', maxHeight: '200px', overflowY: 'auto', zIndex: 10, boxShadow: 'var(--shadow-md)' }}>
-                    {filteredPatients.map(p => (
-                      <div key={p.id} onClick={() => { setFormData({ ...formData, patientId: p.id }); setSearchTerm(p.name); setFilteredPatients([]); }} style={{ padding: '0.5rem', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', transition: 'var(--transition)' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                        {p.name}
-                      </div>
-                    ))}
-                  </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function WeekView({ cursor, appointments, onOpenCreate, actions }) {
+  const first = startOfWeek(cursor);
+  const days = Array.from({ length: 7 }, (_, index) => addDays(first, index));
+
+  return (
+    <section className={styles.weekScroller} aria-label="Agenda semanal">
+      <div className={styles.weekGrid}>
+        {days.map((day) => {
+          const dayItems = appointments.filter((item) => isSameDay(item.date, day));
+          const today = isSameDay(day, new Date());
+
+          return (
+            <div
+              key={dateKey(day)}
+              className={'surface ' + styles.weekDay + (today ? ' ' + styles.today : '')}
+            >
+              <div className={styles.weekDayHeader}>
+                <div>
+                  <span>{day.toLocaleDateString('pt-BR', { weekday: 'short' })}</span>
+                  <strong>{day.getDate()}</strong>
+                </div>
+                <button
+                  type="button"
+                  className={styles.smallAdd}
+                  onClick={() => onOpenCreate(day)}
+                  aria-label={'Agendar em ' + day.toLocaleDateString('pt-BR')}
+                >
+                  <Plus size={15} aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className={styles.weekItems}>
+                {dayItems.length ? (
+                  dayItems.map((appointment) => (
+                    <AppointmentCard
+                      key={appointment.id}
+                      appointment={appointment}
+                      actions={actions}
+                      compact
+                    />
+                  ))
+                ) : (
+                  <span className={styles.noAppointments}>Sem atendimentos</span>
                 )}
               </div>
             </div>
-            <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} required style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-            <input type="time" value={formData.time} onChange={e => setFormData({ ...formData, time: e.target.value })} required style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-            <div>
-              <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Duração (min)</label>
-              <input type="number" value={formData.duration} onChange={e => setFormData({ ...formData, duration: Number(e.target.value) })} style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-            </div>
-            <textarea placeholder="Observações" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} rows="2" style={{ gridColumn: '1 / -1', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-            <button type="submit" style={{ gridColumn: '1 / -1', padding: '0.6rem', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500 }}>Agendar</button>
-          </form>
-        </div>
-      )}
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-        {['all', 'scheduled', 'confirmed', 'done', 'canceled', 'missed'].map(status => (
-          <button key={status} onClick={() => setFilter(status)} style={{ padding: '0.3rem 0.8rem', borderRadius: '20px', border: filter === status ? '2px solid var(--primary)' : '1px solid var(--border-color)', background: filter === status ? 'var(--primary-light)' : 'transparent', color: filter === status ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: filter === status ? 600 : 400 }}>
-            {status === 'all' ? 'Todas' : statusLabels[status]?.label || status}
-          </button>
+function MonthView({ cursor, appointments, onOpenDay, onOpenCreate }) {
+  const days = monthGridDays(cursor);
+  const cursorMonth = cursor.getMonth();
+
+  return (
+    <section className={'surface ' + styles.month}>
+      <div className={styles.monthWeekdays} aria-hidden="true">
+        {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((day) => (
+          <span key={day}>{day}</span>
         ))}
-        <select value={patientFilter} onChange={e => setPatientFilter(e.target.value)} style={{ padding: '0.3rem 0.6rem', borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '0.75rem' }}>
-          <option value="">Todos os pacientes</option>
-          {patients.filter(p => p.status === 'active').map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
       </div>
 
-      <div style={{ display: 'grid', gap: '0.5rem' }}>
-        {filteredAppointments.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Nenhuma consulta encontrada</div>
-        ) : (
-          filteredAppointments.map(a => {
-            const statusInfo = statusLabels[a.status] || statusLabels.scheduled;
-            const stats = getPatientStats(a.patientId);
-            const dateObj = parseDateValue(a.date);
-            return (
-              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1rem', background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', transition: 'var(--transition)', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.patientName}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <CalendarIcon size={14} /> {dateObj ? dateObj.toLocaleDateString('pt-BR') : 'Data inválida'}
-                      <ClockIcon size={14} /> {a.time} ({a.duration || 50} min)
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                        ✅ {stats.done} | ❌ {stats.canceled} | ⏳ {stats.missed}
-                      </span>
-                    </div>
-                    {a.cancelReason && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--danger)' }}>
-                        Motivo: {a.cancelReason}
-                      </div>
-                    )}
-                  </div>
-                  <span style={{ padding: '0.15rem 0.6rem', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 500, background: statusInfo.bg, color: statusInfo.color }}>{statusInfo.label}</span>
-                </div>
-                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                  {(a.status === 'scheduled' || a.status === 'confirmed') && (
-                    <>
-                      <button onClick={() => handleStatus(a.id, 'done')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10B981', padding: '0.2rem 0.4rem' }} title="Realizada"><Check size={16} /></button>
-                      <button onClick={() => handleStatus(a.id, 'canceled')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '0.2rem 0.4rem' }} title="Cancelar"><X size={16} /></button>
-                      <button onClick={() => handleStatus(a.id, 'missed')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: '0.2rem 0.4rem' }} title="Faltou">⏳</button>
-                      <button onClick={() => handleReschedule(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F59E0B', padding: '0.2rem 0.4rem' }} title="Reagendar">🔄</button>
-                    </>
-                  )}
-                  {(a.status === 'canceled' || a.status === 'missed') && (
-                    <button onClick={() => handleReschedule(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F59E0B', padding: '0.2rem 0.4rem' }} title="Reagendar">🔄</button>
-                  )}
-                </div>
+      <div className={styles.monthGrid}>
+        {days.map((day) => {
+          const items = appointments.filter((item) => isSameDay(item.date, day));
+          const outside = day.getMonth() !== cursorMonth;
+          const today = isSameDay(day, new Date());
+
+          return (
+            <div
+              key={dateKey(day)}
+              className={
+                styles.monthDay +
+                (outside ? ' ' + styles.outsideMonth : '') +
+                (today ? ' ' + styles.today : '')
+              }
+            >
+              <div className={styles.monthDayTop}>
+                <button type="button" onClick={() => onOpenDay(day)}>
+                  {day.getDate()}
+                </button>
+                <button
+                  type="button"
+                  className={styles.monthAdd}
+                  onClick={() => onOpenCreate(day)}
+                  aria-label={'Agendar em ' + day.toLocaleDateString('pt-BR')}
+                >
+                  <Plus size={13} aria-hidden="true" />
+                </button>
               </div>
-            );
-          })
+
+              <div className={styles.monthEvents}>
+                {items.slice(0, 3).map((appointment) => (
+                  <button
+                    key={appointment.id}
+                    type="button"
+                    className={styles.monthEvent}
+                    onClick={() => onOpenDay(day)}
+                  >
+                    <span>{appointment.time}</span>
+                    <strong>{appointment.patientName}</strong>
+                  </button>
+                ))}
+                {items.length > 3 && (
+                  <button
+                    type="button"
+                    className={styles.moreEvents}
+                    onClick={() => onOpenDay(day)}
+                  >
+                    +{items.length - 3} outros
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ListView({ appointments, actions }) {
+  const groups = appointments.reduce((accumulator, appointment) => {
+    const key = dateKey(appointment.date) || 'unknown';
+    if (!accumulator[key]) accumulator[key] = [];
+    accumulator[key].push(appointment);
+    return accumulator;
+  }, {});
+
+  const keys = Object.keys(groups).sort();
+
+  if (!keys.length) {
+    return <div className="surface empty-state">Nenhum atendimento no período.</div>;
+  }
+
+  return (
+    <div className={styles.listGroups}>
+      {keys.map((key) => (
+        <section key={key} className="surface">
+          <div className="surface-header">
+            <div>
+              <div className="section-kicker">Lista</div>
+              <h2 className="section-title">
+                {parseDateValue(key)?.toLocaleDateString('pt-BR', {
+                  weekday: 'long',
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric'
+                })}
+              </h2>
+            </div>
+          </div>
+          <div className={styles.dayList}>
+            {groups[key].map((appointment) => (
+              <AppointmentCard
+                key={appointment.id}
+                appointment={appointment}
+                actions={actions}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function AppointmentCard({ appointment, actions, compact = false }) {
+  const status = STATUS_META[appointment.status] || STATUS_META.scheduled;
+  const modality = MODALITY_META[appointment.modality] || MODALITY_META.in_person;
+  const ModalityIcon = modality.icon;
+  const isOpen = ['scheduled', 'confirmed'].includes(appointment.status);
+  const canReschedule = ['scheduled', 'confirmed', 'canceled', 'missed'].includes(appointment.status);
+
+  return (
+    <article className={compact ? styles.appointmentCompact : styles.appointmentCard}>
+      <div className={styles.appointmentTime}>
+        <strong>{appointment.time || '--:--'}</strong>
+        {!compact && <span>{appointment.duration || 50} min</span>}
+      </div>
+
+      <div className={styles.appointmentMain}>
+        <div className={styles.appointmentTitle}>
+          <strong>{appointment.patientName || 'Paciente'}</strong>
+          <span className={'badge ' + status.badge}>{status.label}</span>
+        </div>
+
+        <div className={styles.appointmentMeta}>
+          <span>
+            <ModalityIcon size={14} aria-hidden="true" />
+            {modality.label}
+          </span>
+          {appointment.recurrence?.total > 1 && (
+            <span>
+              <Repeat size={14} aria-hidden="true" />
+              {appointment.recurrence.index + 1}/{appointment.recurrence.total}
+            </span>
+          )}
+          {appointment.status === 'done' && !appointment.recordCompletedAt && (
+            <span className={styles.recordPending}>Registro pendente</span>
+          )}
+        </div>
+
+        {!compact && appointment.notes && (
+          <p className={styles.appointmentNotes}>{appointment.notes}</p>
+        )}
+
+        {!compact && appointment.cancelReason && (
+          <p className={styles.cancelReason}>Motivo: {appointment.cancelReason}</p>
         )}
       </div>
 
-      {rescheduleData && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: 'var(--bg-primary)', padding: '2rem', borderRadius: 'var(--radius)', maxWidth: '400px', width: '100%', boxShadow: 'var(--shadow-xl)' }}>
-            <h3 style={{ margin: '0 0 1rem 0' }}>Reagendar Consulta</h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-              Paciente: <strong>{rescheduleData.patientName}</strong>
-            </p>
-            <form onSubmit={confirmReschedule} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-              <input type="date" value={rescheduleForm.date} onChange={e => setRescheduleForm({ ...rescheduleForm, date: e.target.value })} required style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-              <input type="time" value={rescheduleForm.time} onChange={e => setRescheduleForm({ ...rescheduleForm, time: e.target.value })} required style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button type="submit" style={{ flex: 1, padding: '0.6rem', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500 }}>Confirmar</button>
-                <button type="button" onClick={() => setRescheduleData(null)} style={{ flex: 1, padding: '0.6rem', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>Cancelar</button>
-              </div>
-            </form>
+      <div className={styles.appointmentActions}>
+        {appointment.status === 'scheduled' && (
+          <button
+            type="button"
+            className="button button-ghost"
+            onClick={() => actions.changeStatus(appointment, 'confirmed')}
+          >
+            <Check size={15} aria-hidden="true" />
+            Confirmar
+          </button>
+        )}
+
+        {isOpen && (
+          <>
+            <button
+              type="button"
+              className="button button-ghost"
+              onClick={() => actions.changeStatus(appointment, 'done')}
+            >
+              Realizado
+            </button>
+            <button
+              type="button"
+              className="button button-ghost"
+              onClick={() => actions.changeStatus(appointment, 'missed')}
+            >
+              Não compareceu
+            </button>
+            <button
+              type="button"
+              className="button button-ghost"
+              onClick={() => actions.changeStatus(appointment, 'canceled')}
+            >
+              Cancelar
+            </button>
+          </>
+        )}
+
+        {appointment.status === 'done' && (
+          <Link
+            className="button button-ghost"
+            to={
+              appointment.sessionId
+                ? '/sessions/' + appointment.sessionId
+                : '/sessions/new?patientId=' +
+                  appointment.patientId +
+                  '&appointmentId=' +
+                  appointment.id
+            }
+          >
+            <FileText size={15} aria-hidden="true" />
+            {appointment.sessionId ? 'Abrir registro' : 'Registrar sessão'}
+          </Link>
+        )}
+
+        {canReschedule && (
+          <button
+            type="button"
+            className="button button-ghost"
+            onClick={() => actions.openReschedule(appointment)}
+          >
+            Remarcar
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function CreateAppointmentDialog({
+  form,
+  setForm,
+  patients,
+  onClose,
+  onSubmit,
+  saving
+}) {
+  const recurring = form.recurrenceKind !== 'none';
+
+  return (
+    <Dialog title="Novo agendamento" onClose={onClose}>
+      <form className={styles.dialogForm} onSubmit={onSubmit}>
+        <div className="field">
+          <label className="field-label" htmlFor="appointment-patient">Paciente</label>
+          <select
+            id="appointment-patient"
+            className="select"
+            value={form.patientId}
+            onChange={(event) =>
+              setForm((current) => ({ ...current, patientId: event.target.value }))
+            }
+            required
+          >
+            <option value="">Selecione</option>
+            {patients.map((patient) => (
+              <option key={patient.id} value={patient.id}>{patient.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className={styles.twoFields}>
+          <div className="field">
+            <label className="field-label" htmlFor="appointment-date">Data</label>
+            <input
+              id="appointment-date"
+              type="date"
+              className="input"
+              value={form.date}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, date: event.target.value }))
+              }
+              required
+            />
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="appointment-time">Horário</label>
+            <input
+              id="appointment-time"
+              type="time"
+              className="input"
+              value={form.time}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, time: event.target.value }))
+              }
+              required
+            />
           </div>
         </div>
-      )}
+
+        <div className={styles.twoFields}>
+          <div className="field">
+            <label className="field-label" htmlFor="appointment-duration">Duração</label>
+            <input
+              id="appointment-duration"
+              type="number"
+              min="15"
+              max="240"
+              step="5"
+              className="input"
+              value={form.duration}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  duration: Number(event.target.value)
+                }))
+              }
+            />
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="appointment-modality">Modalidade</label>
+            <select
+              id="appointment-modality"
+              className="select"
+              value={form.modality}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, modality: event.target.value }))
+              }
+            >
+              <option value="in_person">Presencial</option>
+              <option value="online">On-line</option>
+              <option value="other">Outro</option>
+            </select>
+          </div>
+        </div>
+
+        <div className={styles.twoFields}>
+          <div className="field">
+            <label className="field-label" htmlFor="appointment-recurrence">Recorrência</label>
+            <select
+              id="appointment-recurrence"
+              className="select"
+              value={form.recurrenceKind}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  recurrenceKind: event.target.value
+                }))
+              }
+            >
+              <option value="none">Não repetir</option>
+              <option value="weekly">Semanal</option>
+              <option value="biweekly">A cada 2 semanas</option>
+              <option value="monthly">Mensal</option>
+            </select>
+          </div>
+
+          {recurring && (
+            <div className="field">
+              <label className="field-label" htmlFor="appointment-occurrences">
+                Número de ocorrências
+              </label>
+              <input
+                id="appointment-occurrences"
+                type="number"
+                min="2"
+                max="52"
+                className="input"
+                value={form.recurrenceOccurrences}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    recurrenceOccurrences: Number(event.target.value)
+                  }))
+                }
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="field">
+          <label className="field-label" htmlFor="appointment-notes">
+            Observação administrativa
+          </label>
+          <textarea
+            id="appointment-notes"
+            className="textarea"
+            rows={3}
+            value={form.notes}
+            onChange={(event) =>
+              setForm((current) => ({ ...current, notes: event.target.value }))
+            }
+            placeholder="Ex.: orientação de chegada, sala, informação operacional"
+          />
+        </div>
+
+        <div className={styles.dialogActions}>
+          <button type="button" className="button button-secondary" onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className="button button-primary" disabled={saving}>
+            {saving ? 'Salvando...' : recurring ? 'Criar série' : 'Agendar'}
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+function Dialog({ title, children, onClose }) {
+  return (
+    <div className={styles.dialogBackdrop} role="presentation">
+      <section
+        className={styles.dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="agenda-dialog-title"
+      >
+        <header className={styles.dialogHeader}>
+          <h2 id="agenda-dialog-title">{title}</h2>
+          <button type="button" className={styles.iconButton} onClick={onClose} aria-label="Fechar">
+            <X size={19} aria-hidden="true" />
+          </button>
+        </header>
+        {children}
+      </section>
     </div>
   );
 }

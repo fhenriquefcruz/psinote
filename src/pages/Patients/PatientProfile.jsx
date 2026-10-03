@@ -59,6 +59,7 @@ const appointmentStatusLabel = {
   confirmed: 'Confirmado',
   done: 'Realizado',
   canceled: 'Cancelado',
+  rescheduled: 'Remarcado',
   missed: 'Não compareceu'
 };
 

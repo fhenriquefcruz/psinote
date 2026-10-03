@@ -1,0 +1,531 @@
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.navigation {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.iconButton {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.rangeLabel {
+  margin-left: var(--space-2);
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.viewSwitch {
+  display: flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+}
+
+.viewButton,
+.viewActive {
+  min-height: 34px;
+  padding: 0.35rem 0.65rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.viewActive {
+  background: var(--bg-primary);
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.filterBar {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(220px, 320px);
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.weekScroller {
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+
+.weekGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(190px, 1fr));
+  gap: var(--space-3);
+  min-width: 1330px;
+}
+
+.weekDay {
+  min-height: 460px;
+  overflow: hidden;
+}
+
+.today {
+  border-color: var(--primary);
+}
+
+.weekDayHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.weekDayHeader > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.weekDayHeader span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  text-transform: capitalize;
+}
+
+.weekDayHeader strong {
+  font-size: 1.05rem;
+}
+
+.smallAdd,
+.monthAdd {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.smallAdd:hover,
+.monthAdd:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.weekItems {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2);
+}
+
+.noAppointments {
+  padding: var(--space-4) var(--space-2);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  text-align: center;
+}
+
+.dayList {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+.appointmentCard,
+.appointmentCompact {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: start;
+  padding: var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+}
+
+.appointmentCompact {
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.appointmentTime {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.appointmentTime strong {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.appointmentTime span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.appointmentMain {
+  min-width: 0;
+}
+
+.appointmentTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.appointmentTitle strong {
+  color: var(--text-primary);
+}
+
+.appointmentMeta {
+  margin-top: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.appointmentMeta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.recordPending {
+  color: var(--warning) !important;
+  font-weight: 650;
+}
+
+.appointmentNotes,
+.cancelReason {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  white-space: pre-wrap;
+}
+
+.cancelReason {
+  color: var(--danger);
+}
+
+.appointmentActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  max-width: 420px;
+}
+
+.appointmentActions .button {
+  min-height: 34px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.76rem;
+}
+
+.appointmentCompact .appointmentActions {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+}
+
+.appointmentCompact .appointmentActions .button {
+  padding: 0.3rem 0.45rem;
+}
+
+.month {
+  overflow: hidden;
+}
+
+.monthWeekdays,
+.monthGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.monthWeekdays {
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.monthWeekdays span {
+  padding: var(--space-3);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.monthDay {
+  min-height: 132px;
+  padding: var(--space-2);
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+.monthDay:nth-child(7n) {
+  border-right: 0;
+}
+
+.outsideMonth {
+  background: var(--bg-secondary);
+  opacity: 0.68;
+}
+
+.monthDayTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.monthDayTop > button:first-child {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.today .monthDayTop > button:first-child {
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
+.monthEvents {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: var(--space-2);
+}
+
+.monthEvent,
+.moreEvents {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: var(--primary-subtle);
+  color: var(--text-secondary);
+  padding: 0.3rem 0.4rem;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.7rem;
+}
+
+.monthEvent span {
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.monthEvent strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moreEvents {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.listGroups {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.dialogBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgba(8, 19, 16, 0.54);
+}
+
+.dialog {
+  width: min(100%, 620px);
+  max-height: min(90vh, 760px);
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-lg);
+}
+
+.dialogHeader {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+.dialogHeader h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.dialogForm {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.dialogForm > p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.twoFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding-top: var(--space-2);
+}
+
+@media (max-width: 900px) {
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .navigation {
+    flex-wrap: wrap;
+  }
+
+  .rangeLabel {
+    flex: 1 1 100%;
+    margin: var(--space-2) 0 0;
+  }
+
+  .viewSwitch {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .viewButton,
+  .viewActive {
+    flex: 1 0 auto;
+  }
+
+  .appointmentCard {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .appointmentActions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    max-width: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .filterBar,
+  .twoFields {
+    grid-template-columns: 1fr;
+  }
+
+  .weekGrid {
+    grid-template-columns: repeat(7, minmax(250px, 1fr));
+    min-width: 1750px;
+  }
+
+  .month {
+    overflow-x: auto;
+  }
+
+  .monthWeekdays,
+  .monthGrid {
+    min-width: 720px;
+  }
+
+  .appointmentCard {
+    grid-template-columns: 1fr;
+  }
+
+  .appointmentTime {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+
+  .appointmentActions {
+    grid-column: auto;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .appointmentActions .button {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .dialogBackdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .dialog {
+    max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .dialogActions {
+    flex-direction: column-reverse;
+  }
+
+  .dialogActions .button {
+    width: 100%;
+  }
+}

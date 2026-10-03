@@ -1,19 +1,32 @@
 import {
-  collection,
   addDoc,
-  getDocs,
-  getDoc,
-  updateDoc,
+  collection,
   doc,
-  query,
-  where,
+  getDoc,
+  getDocs,
   orderBy,
-  serverTimestamp
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { addActivity } from './activityService';
+import {
+  APPOINTMENT_STATUSES,
+  buildRecurringDateKeys,
+  canRescheduleAppointment,
+  isAppointmentTerminal,
+  normalizeAppointmentRecurrence
+} from '../domain/appointments';
 
 const COLLECTION = 'appointments';
+
+export {
+  APPOINTMENT_STATUSES,
+  APPOINTMENT_MODALITIES
+} from '../domain/appointments';
 
 const getOwnedAppointmentSnapshot = async (appointmentId, psychologistId) => {
   if (!psychologistId) throw new Error('Usuário não autenticado.');
@@ -31,28 +44,86 @@ const getOwnedAppointmentSnapshot = async (appointmentId, psychologistId) => {
   return { appointmentRef, snapshot, data };
 };
 
-export const createAppointment = async (psychologistId, data) => {
-  const appointmentData = {
-    ...data,
-    psychologistId,
-    status: 'scheduled',
-    cancelReason: '',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    createdBy: psychologistId,
-    updatedBy: psychologistId
-  };
+const makeSeriesId = () => {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return 'series-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+};
 
-  const docRef = await addDoc(collection(db, COLLECTION), appointmentData);
+const baseAppointmentData = (psychologistId, data) => ({
+  patientId: data.patientId,
+  patientName: data.patientName || 'Paciente',
+  time: data.time,
+  duration: Number(data.duration || 50),
+  modality: data.modality || 'in_person',
+  notes: data.notes || '',
+  psychologistId,
+  status: 'scheduled',
+  cancelReason: '',
+  recordCompletedAt: null,
+  sessionId: null,
+  createdAt: serverTimestamp(),
+  updatedAt: serverTimestamp(),
+  createdBy: psychologistId,
+  updatedBy: psychologistId
+});
+
+export const createAppointmentSeries = async (
+  psychologistId,
+  data,
+  recurrence = { kind: 'none', occurrences: 1 }
+) => {
+  if (!psychologistId) throw new Error('Usuário não autenticado.');
+  if (!data.patientId || !data.date || !data.time) {
+    throw new Error('Paciente, data e horário são obrigatórios.');
+  }
+
+  const normalizedRecurrence = normalizeAppointmentRecurrence(recurrence);
+  const dates = buildRecurringDateKeys(data.date, normalizedRecurrence);
+  const batch = writeBatch(db);
+  const seriesId =
+    normalizedRecurrence.occurrences > 1 ? makeSeriesId() : null;
+  const created = [];
+
+  for (let index = 0; index < dates.length; index += 1) {
+    const appointmentRef = doc(collection(db, COLLECTION));
+    const appointmentData = {
+      ...baseAppointmentData(psychologistId, data),
+      date: dates[index],
+      recurrence: {
+        kind: normalizedRecurrence.kind,
+        seriesId,
+        index,
+        total: normalizedRecurrence.occurrences
+      }
+    };
+
+    batch.set(appointmentRef, appointmentData);
+    created.push({ id: appointmentRef.id, ...appointmentData });
+  }
+
+  await batch.commit();
+
   await addActivity({
     psychologistId,
     user: psychologistId,
-    action: 'appointment.created',
+    action:
+      normalizedRecurrence.occurrences > 1
+        ? 'appointment.series_created'
+        : 'appointment.created',
     target: 'appointment',
-    targetId: docRef.id
+    targetId: created[0].id
   });
 
-  return { id: docRef.id, ...appointmentData };
+  return created;
+};
+
+export const createAppointment = async (psychologistId, data) => {
+  const [appointment] = await createAppointmentSeries(
+    psychologistId,
+    data,
+    { kind: 'none', occurrences: 1 }
+  );
+  return appointment;
 };
 
 export const getAppointments = async (psychologistId, startDate, endDate) => {
@@ -63,11 +134,17 @@ export const getAppointments = async (psychologistId, startDate, endDate) => {
   );
 
   if (startDate) {
-    appointmentsQuery = query(appointmentsQuery, where('date', '>=', startDate));
+    appointmentsQuery = query(
+      appointmentsQuery,
+      where('date', '>=', startDate)
+    );
   }
 
   if (endDate) {
-    appointmentsQuery = query(appointmentsQuery, where('date', '<=', endDate));
+    appointmentsQuery = query(
+      appointmentsQuery,
+      where('date', '<=', endDate)
+    );
   }
 
   const querySnapshot = await getDocs(appointmentsQuery);
@@ -98,10 +175,20 @@ export const updateAppointmentStatus = async (
   status,
   cancelReason = ''
 ) => {
-  const { appointmentRef } = await getOwnedAppointmentSnapshot(
+  if (!APPOINTMENT_STATUSES.includes(status)) {
+    throw new Error('Status de agendamento inválido.');
+  }
+
+  const { appointmentRef, data } = await getOwnedAppointmentSnapshot(
     appointmentId,
     psychologistId
   );
+
+  if (!data) throw new Error('Agendamento não encontrado.');
+
+  if (isAppointmentTerminal(data.status)) {
+    throw new Error('Este atendimento já está em estado final.');
+  }
 
   const updateData = {
     status,
@@ -110,10 +197,14 @@ export const updateAppointmentStatus = async (
   };
 
   if (status === 'canceled') {
-    updateData.cancelReason = cancelReason;
+    if (!cancelReason.trim()) {
+      throw new Error('Informe o motivo do cancelamento.');
+    }
+    updateData.cancelReason = cancelReason.trim();
   }
 
   await updateDoc(appointmentRef, updateData);
+
   await addActivity({
     psychologistId,
     user: psychologistId,
@@ -126,18 +217,29 @@ export const updateAppointmentStatus = async (
   return true;
 };
 
-export const updateAppointment = async (appointmentId, psychologistId, data) => {
-  const { appointmentRef } = await getOwnedAppointmentSnapshot(
-    appointmentId,
-    psychologistId
-  );
+export const updateAppointment = async (
+  appointmentId,
+  psychologistId,
+  data
+) => {
+  const { appointmentRef, data: currentData } =
+    await getOwnedAppointmentSnapshot(appointmentId, psychologistId);
 
-  await updateDoc(appointmentRef, {
-    ...data,
-    psychologistId,
+  if (!currentData) throw new Error('Agendamento não encontrado.');
+  if (isAppointmentTerminal(currentData.status)) {
+    throw new Error('Atendimentos encerrados não podem ser editados diretamente.');
+  }
+
+  const safeData = {
+    time: data.time ?? currentData.time,
+    duration: Number(data.duration ?? currentData.duration ?? 50),
+    modality: data.modality ?? currentData.modality ?? 'in_person',
+    notes: data.notes ?? currentData.notes ?? '',
     updatedAt: serverTimestamp(),
     updatedBy: psychologistId
-  });
+  };
+
+  await updateDoc(appointmentRef, safeData);
 
   await addActivity({
     psychologistId,
@@ -156,19 +258,43 @@ export const rescheduleAppointment = async (
   newDate,
   newTime
 ) => {
-  const { appointmentRef } = await getOwnedAppointmentSnapshot(
-    appointmentId,
-    psychologistId
-  );
+  const { appointmentRef, data: currentData } =
+    await getOwnedAppointmentSnapshot(appointmentId, psychologistId);
 
-  await updateDoc(appointmentRef, {
-    date: newDate,
-    time: newTime,
-    status: 'scheduled',
+  if (!currentData) throw new Error('Agendamento não encontrado.');
+  if (!canRescheduleAppointment(currentData.status)) {
+    throw new Error('Este atendimento não pode ser remarcado.');
+  }
+
+  const newAppointmentRef = doc(collection(db, COLLECTION));
+  const batch = writeBatch(db);
+
+  batch.update(appointmentRef, {
+    status:
+      ['scheduled', 'confirmed'].includes(currentData.status)
+        ? 'rescheduled'
+        : currentData.status,
     rescheduledAt: serverTimestamp(),
+    rescheduledToId: newAppointmentRef.id,
     updatedAt: serverTimestamp(),
     updatedBy: psychologistId
   });
+
+  const newAppointment = {
+    ...baseAppointmentData(psychologistId, currentData),
+    date: newDate,
+    time: newTime,
+    rescheduledFromId: appointmentId,
+    recurrence: {
+      kind: 'none',
+      seriesId: null,
+      index: 0,
+      total: 1
+    }
+  };
+
+  batch.set(newAppointmentRef, newAppointment);
+  await batch.commit();
 
   await addActivity({
     psychologistId,
@@ -178,10 +304,8 @@ export const rescheduleAppointment = async (
     targetId: appointmentId
   });
 
-  return true;
+  return { id: newAppointmentRef.id, ...newAppointment };
 };
-
-
 
 export const markAppointmentRecordCompleted = async (
   appointmentId,
@@ -190,10 +314,15 @@ export const markAppointmentRecordCompleted = async (
 ) => {
   if (!appointmentId) return;
 
-  const { appointmentRef } = await getOwnedAppointmentSnapshot(
+  const { appointmentRef, data } = await getOwnedAppointmentSnapshot(
     appointmentId,
     psychologistId
   );
+
+  if (!data) throw new Error('Agendamento não encontrado.');
+  if (data.status !== 'done') {
+    throw new Error('Somente atendimentos realizados podem receber registro.');
+  }
 
   await updateDoc(appointmentRef, {
     recordCompletedAt: serverTimestamp(),
