@@ -48,16 +48,21 @@ for (const file of sourceFiles) {
   }
 }
 
-const searchService = sourceFiles.find(
-  (file) => path.relative(root, file.path).replace(/\\/g, '/')
-    === 'src/services/searchService.js'
-);
+const searchBoundaryFiles = sourceFiles.filter((file) => {
+  const relativePath = path.relative(root, file.path).replace(/\\/g, '/');
+  return [
+    'src/services/searchService.js',
+    'src/services/searchIndexService.js'
+  ].includes(relativePath);
+});
 
-if (searchService) {
-  const forbiddenClinicalSearchFields = /\b(mainTheme|clinicalEvolution|evolution|observations|interventions|referrals|agreements|nextSteps|anamnesis|tags)\b/;
-  if (forbiddenClinicalSearchFields.test(searchService.content)) {
+const forbiddenClinicalSearchFields = /\b(mainTheme|clinicalEvolution|evolution|observations|interventions|referrals|agreements|nextSteps|anamnesis|tags)\b/;
+
+for (const file of searchBoundaryFiles) {
+  if (forbiddenClinicalSearchFields.test(file.content)) {
     violations.push(
-      'clinical narrative field referenced by global search: src/services/searchService.js'
+      'clinical narrative field referenced by search boundary: '
+      + path.relative(root, file.path)
     );
   }
 }
