@@ -15,6 +15,10 @@ test('ordinary user cannot open administration route', async ({ page }) => {
 });
 
 test('command palette opens by keyboard and navigates to agenda', async ({ page }) => {
+  await expect(
+    page.getByRole('button', { name: 'Abrir busca e comandos' })
+  ).toBeVisible();
+
   await page.keyboard.press('Control+K');
 
   await expect(
