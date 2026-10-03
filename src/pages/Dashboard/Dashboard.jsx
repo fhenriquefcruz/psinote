@@ -1,208 +1,381 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  FilePenLine,
+  Plus,
+  Users
+} from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { getPatients } from '../../services/patientService';
-import { getSessionsByPatient } from '../../services/sessionService';
 import { getAppointments } from '../../services/appointmentService';
+import { getPatients } from '../../services/patientService';
+import { getSessions } from '../../services/sessionService';
 import { getRecentActivities } from '../../services/activityService';
-import StatsCards from '../../components/dashboard/StatsCards';
-import Charts from '../../components/dashboard/Charts';
 import RecentActivities from '../../components/dashboard/RecentActivities';
+import styles from './Dashboard.module.css';
 
-const parseDate = (value) => {
+const toDate = (value) => {
   if (!value) return null;
-  if (value?.toDate && typeof value.toDate === 'function') return value.toDate();
-  if (typeof value === 'string' || typeof value === 'number') {
-    const d = new Date(value);
-    if (!isNaN(d.getTime())) return d;
+  if (typeof value?.toDate === 'function') return value.toDate();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const startOfDay = (date) => {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  return result;
+};
+
+const endOfDay = (date) => {
+  const result = new Date(date);
+  result.setHours(23, 59, 59, 999);
+  return result;
+};
+
+const appointmentMoment = (appointment) => {
+  const date = toDate(appointment.date);
+  if (!date) return null;
+
+  const result = new Date(date);
+  if (appointment.time && /^\d{2}:\d{2}$/.test(appointment.time)) {
+    const [hours, minutes] = appointment.time.split(':').map(Number);
+    result.setHours(hours, minutes, 0, 0);
   }
-  if (value instanceof Date && !isNaN(value.getTime())) return value;
-  return null;
+
+  return result;
+};
+
+const statusLabel = {
+  scheduled: 'Agendado',
+  confirmed: 'Confirmado',
+  done: 'Realizado',
+  canceled: 'Cancelado',
+  missed: 'Não compareceu'
 };
 
 export default function Dashboard() {
-  const { user } = useAuth();
-  const [stats, setStats] = useState({
-    totalPatients: 0,
-    activePatients: 0,
-    archivedPatients: 0,
-    sessionsThisMonth: 0,
-    sessionsThisYear: 0,
-    nextAppointments: []
-  });
+  const { user, userProfile } = useAuth();
+  const [patients, setPatients] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [sessions, setSessions] = useState([]);
   const [activities, setActivities] = useState([]);
-  const [moodData, setMoodData] = useState([]);
-  const [monthlySessions, setMonthlySessions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activitiesError, setActivitiesError] = useState(false);
 
   useEffect(() => {
-    const loadDashboardData = async () => {
-      if (!user) return;
+    if (!user) return;
+
+    const load = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        // 1. Pacientes
-        const activePatients = await getPatients(user.uid, 'active');
-        const archivedPatients = await getPatients(user.uid, 'archived');
-        const totalPatients = activePatients.length + archivedPatients.length;
+        const [patientList, appointmentList, sessionList, activityList] = await Promise.all([
+          getPatients(user.uid, 'active'),
+          getAppointments(user.uid),
+          getSessions(user.uid, 40),
+          getRecentActivities(user.uid, 8)
+        ]);
 
-        // 2. Buscar TODAS as consultas (appointments) para contagem de sessões realizadas
-        let allAppointments = [];
-        try {
-          allAppointments = await getAppointments(user.uid);
-        } catch (err) {
-          console.warn('Erro ao buscar consultas (índice pendente):', err);
-        }
-
-        // Filtrar apenas consultas com status 'done' (Realizada)
-        const doneAppointments = allAppointments.filter(a => a.status === 'done');
-
-        // Contar sessões realizadas no mês e no ano
-        const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const yearStart = new Date(now.getFullYear(), 0, 1);
-
-        const sessionsThisMonth = doneAppointments.filter(a => {
-          const d = parseDate(a.date);
-          return d && d >= monthStart;
-        });
-        const sessionsThisYear = doneAppointments.filter(a => {
-          const d = parseDate(a.date);
-          return d && d >= yearStart;
-        });
-
-        // Dados mensais para o gráfico de sessões por mês (últimos 6 meses)
-        const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-        const last6Months = [];
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          const count = doneAppointments.filter(a => {
-            const ad = parseDate(a.date);
-            return ad && ad.getFullYear() === d.getFullYear() && ad.getMonth() === d.getMonth();
-          }).length;
-          last6Months.push({
-            month: monthNames[d.getMonth()],
-            sessions: count
-          });
-        }
-        setMonthlySessions(last6Months);
-
-        // 3. Próximas consultas (agendadas/confirmadas)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const nextAppointments = allAppointments
-          .filter(a => {
-            const d = parseDate(a.date);
-            return d && d >= today && (a.status === 'scheduled' || a.status === 'confirmed');
-          })
-          .sort((a, b) => parseDate(a.date) - parseDate(b.date))
-          .slice(0, 5);
-
-        setStats({
-          totalPatients,
-          activePatients: activePatients.length,
-          archivedPatients: archivedPatients.length,
-          sessionsThisMonth: sessionsThisMonth.length,
-          sessionsThisYear: sessionsThisYear.length,
-          nextAppointments
-        });
-
-        // 4. Gráfico de humor (a partir de sessões, se houver)
-        // Buscar sessões da coleção 'sessions' para o gráfico de humor
-        let allSessions = [];
-        const allPatients = [...activePatients, ...archivedPatients];
-        for (const patient of allPatients) {
-          const sessions = await getSessionsByPatient(patient.id, user.uid);
-          allSessions = allSessions.concat(sessions);
-        }
-        const moodTrend = allSessions
-          .filter(s => s.scales?.mood !== undefined)
-          .sort((a, b) => {
-            const da = parseDate(a.date);
-            const db = parseDate(b.date);
-            return da - db;
-          })
-          .slice(-10)
-          .map(s => {
-            const d = parseDate(s.date);
-            return {
-              date: d ? d.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }) : '',
-              humor: s.scales?.mood || 0
-            };
-          });
-        setMoodData(moodTrend);
-
-        // 5. Atividades
-        try {
-          const recentActivities = await getRecentActivities(user.uid, 10);
-          setActivities(recentActivities);
-          setActivitiesError(false);
-        } catch (err) {
-          console.warn('Erro ao buscar atividades (índice pendente):', err);
-          setActivitiesError(true);
-          setActivities([]);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dashboard:', error);
+        setPatients(patientList);
+        setAppointments(appointmentList);
+        setSessions(sessionList);
+        setActivities(activityList);
       } finally {
         setLoading(false);
       }
     };
-    loadDashboardData();
+
+    load();
   }, [user]);
 
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
+
+  const todayAppointments = useMemo(
+    () =>
+      appointments
+        .filter((appointment) => {
+          const date = toDate(appointment.date);
+          return date && date >= todayStart && date <= todayEnd;
+        })
+        .sort((a, b) => (appointmentMoment(a)?.getTime() || 0) - (appointmentMoment(b)?.getTime() || 0)),
+    [appointments, todayEnd, todayStart]
+  );
+
+  const actionableToday = todayAppointments.filter(
+    (appointment) => !['canceled', 'missed'].includes(appointment.status)
+  );
+
+  const currentAppointment = actionableToday.find((appointment) => {
+    const start = appointmentMoment(appointment);
+    if (!start) return false;
+    const duration = Number(appointment.duration || 50);
+    const end = new Date(start.getTime() + duration * 60 * 1000);
+    return now >= start && now <= end;
+  });
+
+  const nextAppointment =
+    currentAppointment ||
+    actionableToday.find((appointment) => {
+      const moment = appointmentMoment(appointment);
+      return moment && moment >= now && ['scheduled', 'confirmed'].includes(appointment.status);
+    });
+
+  const thirtyDaysAgo = new Date(now);
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const pendingRecords = appointments
+    .filter((appointment) => {
+      const date = toDate(appointment.date);
+      return (
+        appointment.status === 'done' &&
+        !appointment.recordCompletedAt &&
+        date &&
+        date >= thirtyDaysAgo
+      );
+    })
+    .sort((a, b) => (toDate(b.date)?.getTime() || 0) - (toDate(a.date)?.getTime() || 0));
+
+  const draftSessions = sessions.filter((session) => session.status === 'draft');
+  const recentFinalized = sessions.filter((session) => session.status === 'finalized').slice(0, 4);
+
+  const patientNames = useMemo(
+    () => Object.fromEntries(patients.map((patient) => [patient.id, patient.name])),
+    [patients]
+  );
+
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Carregando dashboard...</div>;
+    return <div className="page-shell">Preparando sua visão do dia...</div>;
   }
 
   return (
-    <div style={{ padding: '1.5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap' }}>
+    <main className="page-shell">
+      <header className="page-header">
         <div>
-          <h1 style={{ margin: 0 }}>Dashboard</h1>
-          <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>Visão geral da sua prática clínica</p>
+          <div className="section-kicker">Hoje</div>
+          <h1 className="page-title">
+            {userProfile?.name ? 'Bom dia, ' + userProfile.name.split(' ')[0] : 'Visão do dia'}
+          </h1>
+          <p className="page-subtitle">
+            Agenda, registros e próximos passos em um só lugar.
+          </p>
         </div>
-        <div style={{ background: 'var(--bg-tertiary)', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} />
-          Online
-        </div>
-      </div>
 
-      <StatsCards stats={stats} />
-
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
-        <div style={{ background: 'var(--bg-primary)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-          <Charts data={moodData} monthlyData={monthlySessions} />
+        <div className={styles.quickActions}>
+          <Link className="button button-secondary" to="/patients/new">
+            <Users size={17} aria-hidden="true" />
+            Novo paciente
+          </Link>
+          <Link className="button button-primary" to="/sessions/new">
+            <Plus size={17} aria-hidden="true" />
+            Nova sessão
+          </Link>
         </div>
-        <div style={{ background: 'var(--bg-primary)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>📅 Próximas Consultas</h3>
-          {stats.nextAppointments.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>Nenhuma consulta agendada</p>
+      </header>
+
+      <section className={styles.commandGrid}>
+        <div className={'surface ' + styles.nextCard}>
+          <div className={styles.cardKicker}>
+            {currentAppointment ? 'Em atendimento agora' : 'Próximo atendimento'}
+          </div>
+
+          {nextAppointment ? (
+            <>
+              <div className={styles.nextIdentity}>
+                <div>
+                  <h2>{nextAppointment.patientName || patientNames[nextAppointment.patientId] || 'Paciente'}</h2>
+                  <div className={styles.nextMeta}>
+                    <Clock3 size={16} aria-hidden="true" />
+                    <span>{nextAppointment.time || 'Horário não informado'}</span>
+                    <span>•</span>
+                    <span>{nextAppointment.duration || 50} min</span>
+                    <span className="badge badge-info">
+                      {statusLabel[nextAppointment.status] || nextAppointment.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.nextActions}>
+                <Link
+                  className="button button-primary"
+                  to={'/sessions/new?patientId=' + nextAppointment.patientId + '&appointmentId=' + nextAppointment.id}
+                >
+                  Abrir registro
+                  <ArrowRight size={17} aria-hidden="true" />
+                </Link>
+                <Link
+                  className="button button-secondary"
+                  to={'/patients/' + nextAppointment.patientId}
+                >
+                  Ver paciente
+                </Link>
+              </div>
+            </>
           ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {stats.nextAppointments.map((a, index) => {
-                const d = parseDate(a.date);
-                return (
-                  <li key={a.id} style={{ padding: '0.6rem 0', borderBottom: index < stats.nextAppointments.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
-                    <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{a.patientName}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {d ? d.toLocaleDateString('pt-BR') : 'Data inválida'} • {a.time}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className={styles.calmState}>
+              <CheckCircle2 size={24} aria-hidden="true" />
+              <div>
+                <strong>Nenhum atendimento pendente para hoje.</strong>
+                <p>Você pode revisar registros ou organizar a agenda.</p>
+              </div>
+            </div>
           )}
         </div>
-      </div>
 
-      <div style={{ marginTop: '1.5rem' }}>
-        {activitiesError && (
-          <div style={{ background: '#FEF3C7', padding: '0.5rem 1rem', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', color: '#78350F', fontSize: '0.875rem' }}>
-            ⚠️ Não foi possível carregar atividades recentes. Verifique se o índice do Firestore foi criado.
+        <div className={'surface ' + styles.todayCard}>
+          <div className={styles.sectionHead}>
+            <div>
+              <div className="section-kicker">Agenda</div>
+              <h2 className="section-title">Hoje</h2>
+            </div>
+            <Link to="/agenda">Abrir agenda</Link>
           </div>
-        )}
+
+          <div className={styles.todayList}>
+            {todayAppointments.length === 0 ? (
+              <div className={styles.smallEmpty}>Nenhum compromisso hoje.</div>
+            ) : (
+              todayAppointments.slice(0, 5).map((appointment) => (
+                <div className={styles.appointmentRow} key={appointment.id}>
+                  <div className={styles.time}>{appointment.time || '--:--'}</div>
+                  <div className={styles.appointmentInfo}>
+                    <strong>
+                      {appointment.patientName || patientNames[appointment.patientId] || 'Paciente'}
+                    </strong>
+                    <span>{statusLabel[appointment.status] || appointment.status}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.attentionGrid}>
+        <div className="surface">
+          <div className="surface-header">
+            <div>
+              <div className="section-kicker">Atenção</div>
+              <h2 className="section-title">Registros pendentes</h2>
+            </div>
+            <span className={pendingRecords.length ? 'badge badge-warning' : 'badge badge-success'}>
+              {pendingRecords.length}
+            </span>
+          </div>
+
+          <div className={styles.actionList}>
+            {pendingRecords.length === 0 ? (
+              <div className={styles.smallEmpty}>Nenhuma consulta realizada aguardando registro.</div>
+            ) : (
+              pendingRecords.slice(0, 5).map((appointment) => (
+                <div className={styles.actionRow} key={appointment.id}>
+                  <div>
+                    <strong>
+                      {appointment.patientName || patientNames[appointment.patientId] || 'Paciente'}
+                    </strong>
+                    <span>
+                      {toDate(appointment.date)?.toLocaleDateString('pt-BR') || 'Data não informada'}
+                    </span>
+                  </div>
+                  <Link
+                    to={'/sessions/new?patientId=' + appointment.patientId + '&appointmentId=' + appointment.id}
+                    className="button button-ghost"
+                  >
+                    Registrar
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </Link>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="surface">
+          <div className="surface-header">
+            <div>
+              <div className="section-kicker">Continuidade</div>
+              <h2 className="section-title">Rascunhos de sessão</h2>
+            </div>
+            <span className={draftSessions.length ? 'badge badge-warning' : 'badge badge-success'}>
+              {draftSessions.length}
+            </span>
+          </div>
+
+          <div className={styles.actionList}>
+            {draftSessions.length === 0 ? (
+              <div className={styles.smallEmpty}>Nenhum rascunho aberto.</div>
+            ) : (
+              draftSessions.slice(0, 5).map((session) => (
+                <div className={styles.actionRow} key={session.id}>
+                  <div>
+                    <strong>{session.patientName || patientNames[session.patientId] || 'Paciente'}</strong>
+                    <span>{session.mainTheme || 'Registro em andamento'}</span>
+                  </div>
+                  <Link to={'/sessions/' + session.id} className="button button-ghost">
+                    Continuar
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </Link>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.lowerGrid}>
+        <div className="surface">
+          <div className="surface-header">
+            <div>
+              <div className="section-kicker">Histórico recente</div>
+              <h2 className="section-title">Sessões finalizadas</h2>
+            </div>
+            <Link to="/sessions">Ver todas</Link>
+          </div>
+
+          <div className={styles.recentSessions}>
+            {recentFinalized.length === 0 ? (
+              <div className={styles.smallEmpty}>Nenhuma sessão finalizada recentemente.</div>
+            ) : (
+              recentFinalized.map((session) => (
+                <Link key={session.id} to={'/sessions/' + session.id} className={styles.recentRow}>
+                  <FilePenLine size={17} aria-hidden="true" />
+                  <div>
+                    <strong>{session.patientName || patientNames[session.patientId] || 'Paciente'}</strong>
+                    <span>{session.mainTheme || 'Registro finalizado'}</span>
+                  </div>
+                  <span className={styles.recentDate}>
+                    {toDate(session.date)?.toLocaleDateString('pt-BR') || ''}
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+
         <RecentActivities activities={activities} />
-      </div>
-    </div>
+      </section>
+
+      <section className={styles.operationalSummary} aria-label="Resumo operacional">
+        <div>
+          <CalendarDays size={17} aria-hidden="true" />
+          <strong>{todayAppointments.length}</strong>
+          <span>na agenda hoje</span>
+        </div>
+        <div>
+          <Users size={17} aria-hidden="true" />
+          <strong>{patients.length}</strong>
+          <span>pacientes ativos</span>
+        </div>
+        <div>
+          <FilePenLine size={17} aria-hidden="true" />
+          <strong>{draftSessions.length}</strong>
+          <span>rascunhos abertos</span>
+        </div>
+      </section>
+    </main>
   );
 }
