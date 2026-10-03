@@ -59,13 +59,16 @@ const translateAction = (action) => {
     'session.archived': 'Sessão arquivada',
     'session.restored': 'Sessão restaurada',
     'session.duplicated': 'Sessão duplicada',
+    'session.finalized': 'Sessão finalizada',
+    'session.reopened': 'Sessão reaberta',
     'document.created': 'Documento enviado',
     'document.deleted': 'Documento removido',
     'appointment.created': 'Consulta agendada',
     'appointment.updated': 'Consulta atualizada',
     'appointment.status_changed': 'Status da consulta alterado',
     'appointment.rescheduled': 'Consulta reagendada',
-    'appointment.deleted': 'Consulta removida'
+    'appointment.deleted': 'Consulta removida',
+    'appointment.record_completed': 'Registro da consulta concluído'
   };
   return translations[action] || action;
 };
