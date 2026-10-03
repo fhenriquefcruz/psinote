@@ -37,10 +37,20 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop-chromium',
-      testIgnore: /mobile\.spec\.js/,
+      testIgnore: [/mobile\.spec\.js/, /visual\.spec\.js/],
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1440, height: 1000 }
+      }
+    },
+    {
+      name: 'visual-chromium',
+      testMatch: /visual\.spec\.js/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 1000 },
+        colorScheme: 'light',
+        reducedMotion: 'reduce'
       }
     },
     {
