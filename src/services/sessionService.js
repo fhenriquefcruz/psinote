@@ -228,11 +228,14 @@ export const getSessionVersions = async (sessionId, psychologistId) => {
   );
 
   const querySnapshot = await getDocs(versionsQuery);
-  const immutableVersions = querySnapshot.docs.map((snapshot) => ({
-    id: snapshot.id,
-    ...snapshot.data(),
-    source: 'immutable'
-  }));
+  const immutableVersions = querySnapshot.docs.map(
+    (snapshot) =>
+      /** @type {SessionVersionRecord} */ ({
+        id: snapshot.id,
+        ...snapshot.data(),
+        source: 'immutable'
+      })
+  );
 
   const legacyVersions = (currentData.previousVersions || [])
     .map((legacy, index) => ({
