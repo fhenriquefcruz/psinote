@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "security:check": "node scripts/security-check.mjs",
-    "validate": "npm run security:check && npm run build"
+    "validate": "npm run security:dependencies && npm run security:check && npm run build",
+    "security:dependencies": "npm audit --audit-level=moderate"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",
