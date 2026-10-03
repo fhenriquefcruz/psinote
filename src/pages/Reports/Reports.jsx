@@ -5,7 +5,7 @@ import { getSessionsByPatient } from '../../services/sessionService';
 import { toast } from 'react-toastify';
 import { jsPDF } from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
-import { FileText, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 
 export default function Reports() {
   const { user, userProfile } = useAuth();
@@ -287,7 +287,6 @@ export default function Reports() {
       margin: { left: margin, right: margin },
       alternateRowStyles: { fillColor: '#F8FAFC' }
     });
-    y = doc.lastAutoTable.finalY + 10;
 
     const totalPages = doc.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
