@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -75,7 +75,7 @@ export function AuthProvider({ children }) {
         setUser(firebaseUser);
         setUserProfile({ ...profile, role });
         setUserRole(role);
-      } catch (error) {
+      } catch (_error) {
         console.error('Falha ao inicializar sessão autenticada');
         setUser(null);
         setUserProfile(null);
