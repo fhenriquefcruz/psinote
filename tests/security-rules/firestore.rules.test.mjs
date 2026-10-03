@@ -878,3 +878,217 @@ describe('Document draft and immutable issue lifecycle', () => {
     );
   });
 });
+
+
+describe('Privacy-safe search metadata index', () => {
+  const baseEntry = (overrides = {}) => ({
+    psychologistId: 'alice',
+    entityType: 'patient',
+    entityId: 'alice-patient',
+    patientId: 'alice-patient',
+    title: 'Alice patient',
+    status: 'active',
+    searchable: true,
+    date: null,
+    sessionNumber: null,
+    kind: null,
+    templateId: null,
+    templateVersion: null,
+    version: null,
+    createdAt: '2026-10-03T00:00:00.000Z',
+    updatedAt: '2026-10-03T00:00:00.000Z',
+    ...overrides
+  });
+
+  test('owner can index exact patient metadata and another tenant cannot read it', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+    const bob = testEnv.authenticatedContext('bob').firestore();
+    const ref = doc(alice, 'search_entries/patient_alice-patient');
+
+    await assertSucceeds(setDoc(ref, baseEntry()));
+    await assertSucceeds(getDoc(ref));
+    await assertFails(getDoc(doc(bob, 'search_entries/patient_alice-patient')));
+  });
+
+  test('patient index cannot falsify source title/searchability or add clinical narrative', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertFails(
+      setDoc(
+        doc(alice, 'search_entries/forged-title'),
+        baseEntry({ title: 'Outro nome' })
+      )
+    );
+
+    await assertFails(
+      setDoc(
+        doc(alice, 'search_entries/forged-searchability'),
+        baseEntry({ searchable: false })
+      )
+    );
+
+    await assertFails(
+      setDoc(
+        doc(alice, 'search_entries/clinical-smuggle'),
+        {
+          ...baseEntry(),
+          clinicalNarrative: 'conteúdo que nunca deve entrar no índice'
+        }
+      )
+    );
+  });
+
+  test('session search entry is limited to source metadata', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'sessions/search-session'),
+        clinicalRecord('alice', {
+          patientId: 'alice-patient',
+          patientName: 'Alice patient',
+          status: 'finalized',
+          date: '2026-10-01',
+          sessionNumber: 3,
+          version: 2,
+          revision: 4
+        })
+      );
+    });
+
+    const alice = testEnv.authenticatedContext('alice').firestore();
+    const payload = baseEntry({
+      entityType: 'session',
+      entityId: 'search-session',
+      patientId: 'alice-patient',
+      title: 'Alice patient',
+      status: 'finalized',
+      searchable: true,
+      date: '2026-10-01',
+      sessionNumber: 3,
+      version: 2
+    });
+
+    await assertSucceeds(
+      setDoc(
+        doc(alice, 'search_entries/session_search-session'),
+        payload
+      )
+    );
+
+    await assertFails(
+      setDoc(
+        doc(alice, 'search_entries/session_forged'),
+        {
+          ...payload,
+          entityId: 'search-session',
+          title: 'Tema clínico inventado'
+        }
+      )
+    );
+  });
+
+  test('generated document and draft metadata can be indexed without body content', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+
+      await setDoc(
+        doc(db, 'documents/search-document'),
+        clinicalRecord('alice', {
+          patientId: 'alice-patient',
+          name: 'Declaracao.pdf',
+          status: 'issued',
+          kind: 'generated',
+          templateId: 'system.declaration',
+          templateVersion: 1,
+          version: 1
+        })
+      );
+
+      await setDoc(
+        doc(db, 'document_drafts/search-draft'),
+        clinicalRecord('alice', {
+          patientId: 'alice-patient',
+          patientName: 'Alice patient',
+          status: 'draft',
+          templateId: 'system.declaration',
+          templateVersion: 1,
+          issueVersion: 1
+        })
+      );
+    });
+
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertSucceeds(
+      setDoc(
+        doc(alice, 'search_entries/document_search-document'),
+        baseEntry({
+          entityType: 'document',
+          entityId: 'search-document',
+          patientId: 'alice-patient',
+          title: 'Declaracao.pdf',
+          status: 'issued',
+          searchable: true,
+          kind: 'generated',
+          templateId: 'system.declaration',
+          templateVersion: 1,
+          version: 1
+        })
+      )
+    );
+
+    await assertSucceeds(
+      setDoc(
+        doc(alice, 'search_entries/draft_search-draft'),
+        baseEntry({
+          entityType: 'draft',
+          entityId: 'search-draft',
+          patientId: 'alice-patient',
+          title: 'Alice patient',
+          status: 'draft',
+          searchable: true,
+          kind: 'generated',
+          templateId: 'system.declaration',
+          templateVersion: 1,
+          version: 1
+        })
+      )
+    );
+  });
+
+  test('index identity cannot be moved to another entity after creation', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+    const ref = doc(alice, 'search_entries/patient_alice-patient');
+
+    await assertSucceeds(setDoc(ref, baseEntry()));
+
+    await assertFails(
+      updateDoc(ref, {
+        entityId: 'different-patient',
+        updatedAt: '2026-10-03T01:00:00.000Z'
+      })
+    );
+  });
+
+  test('archived patient can only become non-searchable after source state changes', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+    const ref = doc(alice, 'search_entries/patient_alice-patient');
+
+    await assertSucceeds(setDoc(ref, baseEntry()));
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(
+        doc(context.firestore(), 'patients/alice-patient'),
+        { status: 'archived' }
+      );
+    });
+
+    await assertSucceeds(
+      updateDoc(ref, {
+        status: 'archived',
+        searchable: false,
+        createdAt: '2026-10-03T00:00:00.000Z',
+        updatedAt: '2026-10-03T02:00:00.000Z'
+      })
+    );
+  });
+});
