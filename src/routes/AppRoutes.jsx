@@ -14,6 +14,7 @@ import Patients from '../pages/Patients/Patients';
 import PatientProfile from '../pages/Patients/PatientProfile';
 import PatientForm from '../pages/Patients/PatientForm';
 import Sessions from '../pages/Sessions/Sessions';
+import SessionWorkspace from '../pages/Sessions/SessionWorkspace';
 import Agenda from '../pages/Agenda/Agenda';
 import Documents from '../pages/Documents/Documents';
 import Reports from '../pages/Reports/Reports';
@@ -57,6 +58,8 @@ export default function AppRoutes() {
           <Route path="/patients/edit/:id" element={<PatientForm />} />
           <Route path="/patients/:id" element={<PatientProfile />} />
           <Route path="/sessions" element={<Sessions />} />
+          <Route path="/sessions/new" element={<SessionWorkspace />} />
+          <Route path="/sessions/:id" element={<SessionWorkspace />} />
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/documents" element={<Documents />} />
           <Route path="/documents/generate" element={<DocumentGeneratorPage />} />
