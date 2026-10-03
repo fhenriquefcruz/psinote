@@ -1,20 +1,22 @@
 import {
-  collection,
   addDoc,
-  getDocs,
-  getDoc,
-  updateDoc,
+  collection,
   doc,
-  query,
-  where,
-  orderBy,
+  getDoc,
+  getDocs,
   limit,
-  serverTimestamp
+  orderBy,
+  query,
+  runTransaction,
+  serverTimestamp,
+  updateDoc,
+  where
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { addActivity } from './activityService';
 
 const COLLECTION = 'sessions';
+const VERSION_COLLECTION = 'session_versions';
 
 const getOwnedSessionSnapshot = async (sessionId, psychologistId) => {
   if (!psychologistId) throw new Error('Usuário não autenticado.');
@@ -32,6 +34,103 @@ const getOwnedSessionSnapshot = async (sessionId, psychologistId) => {
   return { sessionRef, snapshot, data };
 };
 
+const sessionVersionSnapshot = (data) => ({
+  appointmentId: data.appointmentId || null,
+  sessionNumber: data.sessionNumber || null,
+  patientName: data.patientName || null,
+  date: data.date || null,
+  mainTheme: data.mainTheme || '',
+  observations: data.observations || '',
+  evolution: data.evolution || '',
+  interventions: data.interventions || '',
+  referrals: data.referrals || '',
+  agreements: data.agreements || '',
+  nextSteps: data.nextSteps || '',
+  tags: Array.isArray(data.tags) ? data.tags : [],
+  status: data.status || 'draft',
+  finalizedAt: data.finalizedAt || null,
+  reopenedAt: data.reopenedAt || null
+});
+
+const persistVersionedUpdate = async (
+  sessionId,
+  psychologistId,
+  data,
+  { createVersion, reason }
+) => {
+  const sessionRef = doc(db, COLLECTION, sessionId);
+
+  const result = await runTransaction(db, async (transaction) => {
+    const sessionSnapshot = await transaction.get(sessionRef);
+
+    if (!sessionSnapshot.exists()) {
+      throw new Error('Sessão não encontrada.');
+    }
+
+    const currentData = sessionSnapshot.data();
+
+    if (currentData.psychologistId !== psychologistId) {
+      throw new Error('Sessão não encontrada ou acesso não autorizado.');
+    }
+
+    const currentVersion = currentData.version || 1;
+    const currentRevision = currentData.revision || currentVersion;
+    const nextVersion = createVersion ? currentVersion + 1 : currentVersion;
+    const nextRevision = currentRevision + 1;
+
+    let versionRef = null;
+    let versionSnapshot = null;
+
+    if (createVersion) {
+      versionRef = doc(
+        db,
+        VERSION_COLLECTION,
+        sessionId + '_v' + currentVersion
+      );
+      versionSnapshot = await transaction.get(versionRef);
+    }
+
+    const updateData = {
+      ...data,
+      psychologistId,
+      updatedAt: serverTimestamp(),
+      updatedBy: psychologistId,
+      version: nextVersion,
+      revision: nextRevision
+    };
+
+    if (createVersion && !versionSnapshot.exists()) {
+      transaction.set(versionRef, {
+        psychologistId,
+        patientId: currentData.patientId,
+        sessionId,
+        version: currentVersion,
+        revision: currentRevision,
+        reason,
+        snapshot: sessionVersionSnapshot(currentData),
+        createdAt: serverTimestamp(),
+        createdBy: psychologistId
+      });
+    }
+
+    transaction.update(sessionRef, updateData);
+
+    return {
+      id: sessionId,
+      ...updateData,
+      previousVersionCaptured: createVersion
+        ? {
+            version: currentVersion,
+            revision: currentRevision,
+            reason
+          }
+        : null
+    };
+  });
+
+  return result;
+};
+
 export const createSession = async (psychologistId, data) => {
   const sessionData = {
     ...data,
@@ -39,7 +138,6 @@ export const createSession = async (psychologistId, data) => {
     status: data.status || 'draft',
     version: 1,
     revision: 1,
-    previousVersions: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     createdBy: psychologistId,
@@ -96,43 +194,70 @@ export const getSessionById = async (sessionId, psychologistId) => {
   return { id: snapshot.id, ...data };
 };
 
-export const updateSession = async (
-  sessionId,
-  psychologistId,
-  data,
-  saveVersion = true
-) => {
-  const { sessionRef, data: currentData } = await getOwnedSessionSnapshot(
+export const getSessionVersions = async (sessionId, psychologistId) => {
+  const { data: currentData } = await getOwnedSessionSnapshot(
     sessionId,
     psychologistId
   );
 
-  if (!currentData) throw new Error('Sessão não encontrada.');
+  if (!currentData) return [];
 
-  let previousVersions = currentData.previousVersions || [];
+  const versionsQuery = query(
+    collection(db, VERSION_COLLECTION),
+    where('psychologistId', '==', psychologistId),
+    where('sessionId', '==', sessionId),
+    orderBy('version', 'desc')
+  );
 
-  if (saveVersion) {
-    const versionSnapshot = {
-      ...currentData,
-      version: currentData.version || 0,
-      savedAt: new Date().toISOString()
-    };
-    delete versionSnapshot.previousVersions;
+  const querySnapshot = await getDocs(versionsQuery);
+  const immutableVersions = querySnapshot.docs.map((snapshot) => ({
+    id: snapshot.id,
+    ...snapshot.data(),
+    source: 'immutable'
+  }));
 
-    previousVersions = [...previousVersions, versionSnapshot].slice(-10);
-  }
+  const legacyVersions = (currentData.previousVersions || [])
+    .map((legacy, index) => ({
+      id: sessionId + '_legacy_' + index,
+      psychologistId,
+      patientId: currentData.patientId,
+      sessionId,
+      version: legacy.version || index + 1,
+      revision: legacy.revision || legacy.version || index + 1,
+      reason: 'legacy-embedded',
+      snapshot: sessionVersionSnapshot(legacy),
+      createdAt: legacy.savedAt || legacy.updatedAt || null,
+      createdBy: legacy.updatedBy || legacy.createdBy || psychologistId,
+      source: 'legacy'
+    }))
+    .filter(
+      (legacy) =>
+        !immutableVersions.some(
+          (current) => current.version === legacy.version
+        )
+    );
 
-  const updateData = {
-    ...data,
+  return [...immutableVersions, ...legacyVersions].sort(
+    (a, b) => (b.version || 0) - (a.version || 0)
+  );
+};
+
+export const updateSession = async (
+  sessionId,
+  psychologistId,
+  data,
+  saveVersion = true,
+  reason = 'manual-save'
+) => {
+  const result = await persistVersionedUpdate(
+    sessionId,
     psychologistId,
-    updatedAt: serverTimestamp(),
-    updatedBy: psychologistId,
-    version: saveVersion ? (currentData.version || 1) + 1 : (currentData.version || 1),
-    revision: (currentData.revision || currentData.version || 1) + 1,
-    previousVersions
-  };
-
-  await updateDoc(sessionRef, updateData);
+    data,
+    {
+      createVersion: saveVersion,
+      reason
+    }
+  );
 
   if (saveVersion) {
     await addActivity({
@@ -141,15 +266,15 @@ export const updateSession = async (
       action: 'session.updated',
       target: 'session',
       targetId: sessionId,
-      details: { version: updateData.version }
+      details: { version: result.version }
     });
   }
 
-  return { id: sessionId, ...updateData };
+  return result;
 };
 
 export const autoSaveSession = async (sessionId, psychologistId, data) =>
-  updateSession(sessionId, psychologistId, data, false);
+  updateSession(sessionId, psychologistId, data, false, 'autosave');
 
 export const finalizeSession = async (sessionId, psychologistId, data) => {
   const result = await updateSession(
@@ -160,7 +285,8 @@ export const finalizeSession = async (sessionId, psychologistId, data) => {
       status: 'finalized',
       finalizedAt: serverTimestamp()
     },
-    true
+    true,
+    'finalize'
   );
 
   await addActivity({
@@ -176,22 +302,27 @@ export const finalizeSession = async (sessionId, psychologistId, data) => {
 };
 
 export const reopenSession = async (sessionId, psychologistId) => {
-  const { sessionRef } = await getOwnedSessionSnapshot(sessionId, psychologistId);
-
-  await updateDoc(sessionRef, {
-    status: 'draft',
-    reopenedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    updatedBy: psychologistId
-  });
+  const result = await updateSession(
+    sessionId,
+    psychologistId,
+    {
+      status: 'draft',
+      reopenedAt: serverTimestamp()
+    },
+    true,
+    'reopen'
+  );
 
   await addActivity({
     psychologistId,
     user: psychologistId,
     action: 'session.reopened',
     target: 'session',
-    targetId: sessionId
+    targetId: sessionId,
+    details: { version: result.version }
   });
+
+  return result;
 };
 
 export const duplicateSession = async (sessionId, psychologistId) => {
@@ -218,7 +349,6 @@ export const duplicateSession = async (sessionId, psychologistId) => {
     status: 'draft',
     version: 1,
     revision: 1,
-    previousVersions: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     createdBy: psychologistId,
@@ -240,13 +370,13 @@ export const duplicateSession = async (sessionId, psychologistId) => {
 };
 
 export const archiveSession = async (sessionId, psychologistId) => {
-  const { sessionRef } = await getOwnedSessionSnapshot(sessionId, psychologistId);
-
-  await updateDoc(sessionRef, {
-    status: 'archived',
-    updatedAt: serverTimestamp(),
-    updatedBy: psychologistId
-  });
+  await updateSession(
+    sessionId,
+    psychologistId,
+    { status: 'archived' },
+    true,
+    'archive'
+  );
 
   await addActivity({
     psychologistId,
@@ -258,13 +388,13 @@ export const archiveSession = async (sessionId, psychologistId) => {
 };
 
 export const restoreSession = async (sessionId, psychologistId) => {
-  const { sessionRef } = await getOwnedSessionSnapshot(sessionId, psychologistId);
-
-  await updateDoc(sessionRef, {
-    status: 'draft',
-    updatedAt: serverTimestamp(),
-    updatedBy: psychologistId
-  });
+  await updateSession(
+    sessionId,
+    psychologistId,
+    { status: 'draft' },
+    true,
+    'restore'
+  );
 
   await addActivity({
     psychologistId,
