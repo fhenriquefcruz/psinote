@@ -21,7 +21,7 @@ export default function Login() {
       await login(email, password);
       toast.success('Login realizado!');
       navigate('/dashboard');
-    } catch (error) {
+    } catch (_error) {
       console.error('Falha ao autenticar');
       toast.error('Não foi possível entrar. Revise as credenciais e tente novamente.');
     } finally {
