@@ -14,6 +14,10 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { addActivity } from './activityService';
+import {
+  safelySyncSearchEntry,
+  syncSessionSearchEntry
+} from './searchIndexService';
 
 const COLLECTION = 'sessions';
 const VERSION_COLLECTION = 'session_versions';
@@ -124,7 +128,14 @@ const persistVersionedUpdate = async (
             revision: currentRevision,
             reason
           }
-        : null
+        : null,
+      searchMetadata: {
+        ...currentData,
+        ...data,
+        status: data.status ?? currentData.status,
+        version: nextVersion,
+        revision: nextRevision
+      }
     };
   });
 
@@ -154,6 +165,10 @@ export const createSession = async (psychologistId, data) => {
     targetId: docRef.id,
     details: { patientId: data.patientId }
   });
+
+  await safelySyncSearchEntry(() =>
+    syncSessionSearchEntry(docRef.id, psychologistId, sessionData)
+  );
 
   return { id: docRef.id, ...sessionData };
 };
@@ -268,6 +283,14 @@ export const updateSession = async (
       targetId: sessionId,
       details: { version: result.version }
     });
+
+    await safelySyncSearchEntry(() =>
+      syncSessionSearchEntry(
+        sessionId,
+        psychologistId,
+        result.searchMetadata
+      )
+    );
   }
 
   return result;
@@ -365,6 +388,10 @@ export const duplicateSession = async (sessionId, psychologistId) => {
     targetId: docRef.id,
     details: { originalId: sessionId }
   });
+
+  await safelySyncSearchEntry(() =>
+    syncSessionSearchEntry(docRef.id, psychologistId, newData)
+  );
 
   return { id: docRef.id, ...newData };
 };
