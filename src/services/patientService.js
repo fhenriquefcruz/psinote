@@ -224,16 +224,18 @@ export const duplicatePatient = async (patientId, psychologistId) => {
   const original = await getPatientById(patientId, psychologistId);
   if (!original) throw new Error('Paciente não encontrado.');
 
-  const {
-    id,
-    createdAt,
-    updatedAt,
-    createdBy,
-    updatedBy,
-    deletedAt,
-    archivedAt,
-    ...rest
-  } = original;
+  const omittedFields = new Set([
+    'id',
+    'createdAt',
+    'updatedAt',
+    'createdBy',
+    'updatedBy',
+    'deletedAt',
+    'archivedAt'
+  ]);
+  const rest = Object.fromEntries(
+    Object.entries(original).filter(([key]) => !omittedFields.has(key))
+  );
 
   const newData = {
     ...rest,
