@@ -47,6 +47,39 @@ service cloud.firestore {
         == resource.data.get('patientId', null);
     }
 
+    function validSessionVersionCreate() {
+      let sessionId = request.resource.data.sessionId;
+      let parentPath = /databases/$(database)/documents/sessions/$(sessionId);
+      return ownsIncomingRecord()
+        && request.resource.data.keys().hasOnly([
+          'psychologistId',
+          'patientId',
+          'sessionId',
+          'version',
+          'revision',
+          'reason',
+          'snapshot',
+          'createdAt',
+          'createdBy'
+        ])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.version is int
+        && request.resource.data.version > 0
+        && request.resource.data.revision is int
+        && request.resource.data.revision > 0
+        && request.resource.data.snapshot is map
+        && request.resource.data.reason in [
+          'manual-save',
+          'finalize',
+          'reopen',
+          'archive',
+          'restore'
+        ]
+        && exists(parentPath)
+        && get(parentPath).data.psychologistId == request.auth.uid
+        && get(parentPath).data.patientId == request.resource.data.patientId;
+    }
+
     function safeActivityPayload() {
       return request.resource.data.keys().hasOnly([
           'psychologistId',
@@ -109,6 +142,12 @@ service cloud.firestore {
         && preservesPatientLink()
         && preservesCreationMetadata();
       allow delete: if false;
+    }
+
+    match /session_versions/{versionId} {
+      allow create: if validSessionVersionCreate();
+      allow read: if ownsExistingRecord();
+      allow update, delete: if false;
     }
 
     match /appointments/{recordId} {
