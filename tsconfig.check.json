@@ -26,7 +26,8 @@
     "scripts/**/*.mjs",
     "playwright.config.js",
     "playwright.production.config.js",
-    "vite.config.js"
+    "vite.config.js",
+    "src/**/*.d.ts"
   ],
   "exclude": [
     "dist",
