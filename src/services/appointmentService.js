@@ -4,7 +4,6 @@ import {
   getDocs,
   getDoc,
   updateDoc,
-  deleteDoc,
   doc,
   query,
   where,
@@ -182,23 +181,6 @@ export const rescheduleAppointment = async (
   return true;
 };
 
-export const deleteAppointment = async (appointmentId, psychologistId) => {
-  const { appointmentRef } = await getOwnedAppointmentSnapshot(
-    appointmentId,
-    psychologistId
-  );
-
-  await deleteDoc(appointmentRef);
-  await addActivity({
-    psychologistId,
-    user: psychologistId,
-    action: 'appointment.deleted',
-    target: 'appointment',
-    targetId: appointmentId
-  });
-
-  return true;
-};
 
 
 export const markAppointmentRecordCompleted = async (
