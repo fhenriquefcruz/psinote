@@ -4,18 +4,7 @@ import { getAppointments, createAppointment, updateAppointmentStatus, deleteAppo
 import { getPatients } from '../../services/patientService';
 import { toast } from 'react-toastify';
 import { Plus, X, Check, Calendar as CalendarIcon, Clock as ClockIcon, Search } from 'lucide-react';
-
-// 👇 FUNÇÃO EMBUTIDA PARA SUBSTITUIR O helpers.js
-const parseDate = (value) => {
-  if (!value) return null;
-  if (typeof value?.toDate === 'function') return value.toDate();
-  if (typeof value === 'string' || typeof value === 'number') {
-    const date = new Date(value);
-    if (!isNaN(date.getTime())) return date;
-  }
-  if (value instanceof Date && !isNaN(value.getTime())) return value;
-  return null;
-};
+import { parseDateValue, toDateInputValue } from '../../utils/date';
 
 export default function Agenda() {
   const { user } = useAuth();
@@ -111,10 +100,10 @@ export default function Agenda() {
   };
 
   const handleReschedule = (appointment) => {
-    const dateObj = parseDate(appointment.date);
+    const dateObj = parseDateValue(appointment.date);
     setRescheduleData(appointment);
     setRescheduleForm({
-      date: dateObj ? dateObj.toISOString().slice(0,10) : '',
+      date: dateObj ? toDateInputValue(dateObj) : '',
       time: appointment.time || ''
     });
   };
@@ -244,7 +233,7 @@ export default function Agenda() {
           filteredAppointments.map(a => {
             const statusInfo = statusLabels[a.status] || statusLabels.scheduled;
             const stats = getPatientStats(a.patientId);
-            const dateObj = parseDate(a.date);
+            const dateObj = parseDateValue(a.date);
             return (
               <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1rem', background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', transition: 'var(--transition)', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
