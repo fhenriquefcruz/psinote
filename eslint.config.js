@@ -37,8 +37,27 @@ export default [
     }
   },
   {
+    files: ['tests/**/*.{js,mjs}'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        ...globals.node,
+        ...globals.browser
+      }
+    },
+    rules: {
+      'no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_'
+        }
+      ]
+    }
+  },
+  {
     files: [
-      'tests/**/*.{js,mjs}',
       'scripts/**/*.mjs',
       '*.config.js'
     ],
