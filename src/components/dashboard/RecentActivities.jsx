@@ -26,7 +26,6 @@ const actionMap = {
   'Consulta reagendada': { icon: Calendar, color: '#F59E0B' },
   'Consulta confirmada': { icon: Calendar, color: '#4F46E5' },
   'Consulta faltou': { icon: Calendar, color: '#6B7280' },
-  'Consulta agendada': { icon: Calendar, color: '#10B981' },
 };
 
 // Mapeia ações em inglês para português (caso venham do backend)
