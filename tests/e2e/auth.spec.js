@@ -18,7 +18,7 @@ test('user can register, logout and login again against emulators', async ({ pag
   await registerSyntheticUser(page, account);
 
   await expect(
-    page.getByRole('heading', { name: /Visão do dia|Dashboard/i })
+    page.getByRole('heading', { name: /Bom dia|Visão do dia/i })
   ).toBeVisible();
 
   await page.getByRole('button', { name: 'Sair' }).click();
