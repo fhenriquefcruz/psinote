@@ -38,6 +38,7 @@ export const createSession = async (psychologistId, data) => {
     psychologistId,
     status: data.status || 'draft',
     version: 1,
+    revision: 1,
     previousVersions: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -126,7 +127,8 @@ export const updateSession = async (
     psychologistId,
     updatedAt: serverTimestamp(),
     updatedBy: psychologistId,
-    version: (currentData.version || 0) + 1,
+    version: saveVersion ? (currentData.version || 1) + 1 : (currentData.version || 1),
+    revision: (currentData.revision || currentData.version || 1) + 1,
     previousVersions
   };
 
@@ -215,6 +217,7 @@ export const duplicateSession = async (sessionId, psychologistId) => {
     date: new Date(),
     status: 'draft',
     version: 1,
+    revision: 1,
     previousVersions: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
