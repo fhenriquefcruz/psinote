@@ -418,6 +418,14 @@ const renderPsychologicalReport = ({ values, patient, professional }) => ({
   }
 });
 
+class DocumentValidationError extends Error {
+  constructor(message, validationErrors) {
+    super(message);
+    this.name = 'DocumentValidationError';
+    this.validationErrors = validationErrors;
+  }
+}
+
 export const renderDocumentModel = ({
   template,
   values,
@@ -430,9 +438,10 @@ export const renderDocumentModel = ({
 
   const validation = validateDocumentValues(template, values);
   if (!validation.valid) {
-    const error = new Error('Existem campos obrigatórios pendentes.');
-    error.validationErrors = validation.errors;
-    throw error;
+    throw new DocumentValidationError(
+      'Existem campos obrigatórios pendentes.',
+      validation.errors
+    );
   }
 
   if (template.type === 'declaration') {
