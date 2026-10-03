@@ -1,0 +1,273 @@
+.quickActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.commandGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.75fr);
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.nextCard {
+  padding: var(--space-6);
+  min-height: 230px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background:
+    linear-gradient(135deg, var(--primary-subtle), transparent 58%),
+    var(--bg-primary);
+}
+
+.cardKicker {
+  color: var(--primary);
+  font-size: 0.76rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.nextIdentity h2 {
+  margin: var(--space-3) 0 0;
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+}
+
+.nextMeta {
+  margin-top: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  color: var(--text-secondary);
+}
+
+.nextActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-6);
+}
+
+.calmState {
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--success);
+}
+
+.calmState strong {
+  color: var(--text-primary);
+}
+
+.calmState p {
+  margin: 0.2rem 0 0;
+}
+
+.todayCard {
+  padding: var(--space-5);
+}
+
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.sectionHead a {
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.todayList,
+.actionList,
+.recentSessions {
+  display: grid;
+}
+
+.appointmentRow {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.appointmentRow:last-child {
+  border-bottom: 0;
+}
+
+.time {
+  color: var(--primary);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.appointmentInfo {
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.appointmentInfo strong,
+.actionRow strong,
+.recentRow strong {
+  color: var(--text-primary);
+}
+
+.appointmentInfo span,
+.actionRow span,
+.recentRow span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.attentionGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.actionList {
+  padding: 0 var(--space-5) var(--space-3);
+}
+
+.actionRow {
+  min-height: 62px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0.65rem 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.actionRow > div {
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.actionRow .button {
+  min-height: 36px;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.8rem;
+}
+
+.lowerGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.recentSessions {
+  padding: 0 var(--space-5) var(--space-3);
+}
+
+.recentRow {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.recentRow > div {
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.recentDate {
+  white-space: nowrap;
+}
+
+.smallEmpty {
+  padding: var(--space-5) 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.operationalSummary {
+  margin-top: var(--space-5);
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.operationalSummary > div {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+}
+
+.operationalSummary strong {
+  color: var(--text-primary);
+}
+
+.operationalSummary span {
+  font-size: 0.78rem;
+}
+
+@media (max-width: 1040px) {
+  .commandGrid,
+  .attentionGrid,
+  .lowerGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .todayCard {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 680px) {
+  .quickActions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .quickActions .button {
+    flex: 1 1 auto;
+  }
+
+  .nextCard {
+    min-height: 210px;
+    padding: var(--space-5);
+  }
+
+  .nextActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .actionRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .recentRow {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .recentDate {
+    grid-column: 2;
+  }
+}
