@@ -11,7 +11,10 @@
     "validate": "npm run security:dependencies && npm run security:check && npm run test:unit && npm run test:rules && npm run build",
     "security:dependencies": "npm audit --audit-level=moderate",
     "test:rules": "npx --yes firebase-tools@15.30.2 emulators:exec --project demo-psinote-rules --only firestore,storage \"node --test tests/security-rules/*.test.mjs\"",
-    "test:unit": "node --test tests/unit/*.test.mjs"
+    "test:unit": "node --test tests/unit/*.test.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:emulated": "npx --yes firebase-tools@15.30.2 emulators:exec --project demo-psinote-e2e --only auth,firestore,storage \"playwright test\"",
+    "test:production-smoke": "playwright test -c playwright.production.config.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",
@@ -32,7 +35,9 @@
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "6.1.1",
     "vite": "8.3.2",
-    "@firebase/rules-unit-testing": "5.0.2"
+    "@firebase/rules-unit-testing": "5.0.2",
+    "@playwright/test": "1.63.0",
+    "@axe-core/playwright": "4.13.0"
   },
   "engines": {
     "node": ">=20"
