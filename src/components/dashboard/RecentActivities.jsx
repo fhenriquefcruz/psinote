@@ -1,4 +1,4 @@
-import { Clock, User, FileText, Calendar, Edit, Trash2, Archive, Upload } from 'lucide-react';
+import { Clock, User, Calendar, Edit, Trash2, Archive, Upload } from 'lucide-react';
 
 const parseActivityDate = (value) => {
   if (!value) return null;

@@ -9,7 +9,6 @@ import {
   query,
   runTransaction,
   serverTimestamp,
-  updateDoc,
   where
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -173,6 +172,7 @@ export const createSession = async (psychologistId, data) => {
   return { id: docRef.id, ...sessionData };
 };
 
+/** @returns {Promise<SessionRecord[]>} */
 export const getSessions = async (psychologistId, limitCount = 50) => {
   const sessionsQuery = query(
     collection(db, COLLECTION),
@@ -188,6 +188,7 @@ export const getSessions = async (psychologistId, limitCount = 50) => {
   }));
 };
 
+/** @returns {Promise<SessionRecord[]>} */
 export const getSessionsByPatient = async (patientId, psychologistId) => {
   const sessionsQuery = query(
     collection(db, COLLECTION),
@@ -203,12 +204,14 @@ export const getSessionsByPatient = async (patientId, psychologistId) => {
   }));
 };
 
+/** @returns {Promise<SessionRecord | null>} */
 export const getSessionById = async (sessionId, psychologistId) => {
   const { snapshot, data } = await getOwnedSessionSnapshot(sessionId, psychologistId);
   if (!snapshot.exists()) return null;
   return { id: snapshot.id, ...data };
 };
 
+/** @returns {Promise<SessionVersionRecord[]>} */
 export const getSessionVersions = async (sessionId, psychologistId) => {
   const { data: currentData } = await getOwnedSessionSnapshot(
     sessionId,
@@ -225,11 +228,14 @@ export const getSessionVersions = async (sessionId, psychologistId) => {
   );
 
   const querySnapshot = await getDocs(versionsQuery);
-  const immutableVersions = querySnapshot.docs.map((snapshot) => ({
-    id: snapshot.id,
-    ...snapshot.data(),
-    source: 'immutable'
-  }));
+  const immutableVersions = querySnapshot.docs.map(
+    (snapshot) =>
+      /** @type {SessionVersionRecord} */ ({
+        id: snapshot.id,
+        ...snapshot.data(),
+        source: 'immutable'
+      })
+  );
 
   const legacyVersions = (currentData.previousVersions || [])
     .map((legacy, index) => ({
@@ -352,22 +358,24 @@ export const duplicateSession = async (sessionId, psychologistId) => {
   const original = await getSessionById(sessionId, psychologistId);
   if (!original) throw new Error('Sessão não encontrada.');
 
-  const {
-    id,
-    createdAt,
-    updatedAt,
-    createdBy,
-    updatedBy,
-    finalizedAt,
-    reopenedAt,
-    previousVersions,
-    ...rest
-  } = original;
+  const omittedFields = new Set([
+    'id',
+    'createdAt',
+    'updatedAt',
+    'createdBy',
+    'updatedBy',
+    'finalizedAt',
+    'reopenedAt',
+    'previousVersions'
+  ]);
+  const rest = Object.fromEntries(
+    Object.entries(original).filter(([key]) => !omittedFields.has(key))
+  );
 
   const newData = {
     ...rest,
     psychologistId,
-    sessionNumber: (rest.sessionNumber || 0) + 1,
+    sessionNumber: Number(rest.sessionNumber || 0) + 1,
     date: new Date(),
     status: 'draft',
     version: 1,

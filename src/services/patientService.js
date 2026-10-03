@@ -72,6 +72,7 @@ export const createPatient = async (psychologistId, data) => {
   return { id: docRef.id, ...patientData };
 };
 
+/** @returns {Promise<PatientRecord[]>} */
 export const getPatients = async (psychologistId, status = 'active') => {
   const patientsQuery = query(
     collection(db, COLLECTION),
@@ -87,6 +88,7 @@ export const getPatients = async (psychologistId, status = 'active') => {
   }));
 };
 
+/** @returns {Promise<PatientRecord | null>} */
 export const getPatientById = async (patientId, psychologistId) => {
   const { snapshot, data } = await getOwnedPatientSnapshot(patientId, psychologistId);
   if (!snapshot.exists()) return null;
@@ -224,16 +226,18 @@ export const duplicatePatient = async (patientId, psychologistId) => {
   const original = await getPatientById(patientId, psychologistId);
   if (!original) throw new Error('Paciente não encontrado.');
 
-  const {
-    id,
-    createdAt,
-    updatedAt,
-    createdBy,
-    updatedBy,
-    deletedAt,
-    archivedAt,
-    ...rest
-  } = original;
+  const omittedFields = new Set([
+    'id',
+    'createdAt',
+    'updatedAt',
+    'createdBy',
+    'updatedBy',
+    'deletedAt',
+    'archivedAt'
+  ]);
+  const rest = Object.fromEntries(
+    Object.entries(original).filter(([key]) => !omittedFields.has(key))
+  );
 
   const newData = {
     ...rest,
@@ -265,23 +269,18 @@ export const duplicatePatient = async (patientId, psychologistId) => {
   return { id: docRef.id, ...newData };
 };
 
+/** @returns {Promise<PatientRecord[]>} */
 export const searchPatients = async (psychologistId, searchTerm) => {
-  const patientsQuery = query(
-    collection(db, COLLECTION),
-    where('psychologistId', '==', psychologistId),
-    where('status', '==', 'active'),
-    orderBy('createdAt', 'desc')
-  );
-
-  const querySnapshot = await getDocs(patientsQuery);
+  const patients = await getPatients(psychologistId, 'active');
   const normalizedTerm = searchTerm.toLowerCase();
 
-  return querySnapshot.docs
-    .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }))
-    .filter((patient) => {
-      const nameMatch = patient.name?.toLowerCase().includes(normalizedTerm);
-      const emailMatch = patient.email?.toLowerCase().includes(normalizedTerm);
-      const phoneMatch = patient.phone?.includes(searchTerm) || patient.whatsapp?.includes(searchTerm);
-      return nameMatch || emailMatch || phoneMatch;
-    });
+  return patients.filter((patient) => {
+    const nameMatch = patient.name?.toLowerCase().includes(normalizedTerm);
+    const emailMatch = patient.email?.toLowerCase().includes(normalizedTerm);
+    const phoneMatch =
+      patient.phone?.includes(searchTerm)
+      || patient.whatsapp?.includes(searchTerm);
+
+    return nameMatch || emailMatch || phoneMatch;
+  });
 };

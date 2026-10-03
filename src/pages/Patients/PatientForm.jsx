@@ -5,6 +5,15 @@ import { createPatient, updatePatient, getPatientById } from '../../services/pat
 import { toast } from 'react-toastify';
 import Tooltip from '../../components/common/Tooltip/Tooltip';
 
+const EMPTY_ANAMNESIS = {
+  chiefComplaint: '',
+  familyHistory: '',
+  medicalHistory: '',
+  medications: '',
+  therapeuticGoals: '',
+  initialObservations: ''
+};
+
 export default function PatientForm() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -22,14 +31,7 @@ export default function PatientForm() {
     address: '',
     emergencyContact: '',
     observations: '',
-    anamnesis: {
-      chiefComplaint: '',
-      familyHistory: '',
-      medicalHistory: '',
-      medications: '',
-      therapeuticGoals: '',
-      initialObservations: ''
-    }
+    anamnesis: { ...EMPTY_ANAMNESIS }
   });
 
   useEffect(() => {
@@ -49,13 +51,9 @@ export default function PatientForm() {
             address: data.address || '',
             emergencyContact: data.emergencyContact || '',
             observations: data.observations || '',
-            anamnesis: data.anamnesis || {
-              chiefComplaint: '',
-              familyHistory: '',
-              medicalHistory: '',
-              medications: '',
-              therapeuticGoals: '',
-              initialObservations: ''
+            anamnesis: {
+              ...EMPTY_ANAMNESIS,
+              ...(data.anamnesis || {})
             }
           });
         }
@@ -143,8 +141,8 @@ export default function PatientForm() {
         {/* CPF - validação simples */}
         <div>
           <label style={labelStyle}>CPF (opcional)</label>
-          <input name="cpf" value={formData.cpf} onChange={handleChange} placeholder="000.000.000-00" maxLength="14" style={inputStyle}
-            onInput={(e) => e.target.value = e.target.value.replace(/\D/g, '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')} />
+          <input name="cpf" value={formData.cpf} onChange={handleChange} placeholder="000.000.000-00" maxLength={14} style={inputStyle}
+            onInput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4'); }} />
         </div>
         <div>
           <label style={labelStyle}>Data de nascimento <span style={{ color: 'var(--danger)' }}>*</span></label>
@@ -176,12 +174,12 @@ export default function PatientForm() {
 
         <div style={{ gridColumn: '1 / -1' }}>
           <label style={labelStyle}>Endereço</label>
-          <textarea name="address" value={formData.address} onChange={handleChange} rows="2" style={inputStyle} />
+          <textarea name="address" value={formData.address} onChange={handleChange} rows={2} style={inputStyle} />
         </div>
 
         <div style={{ gridColumn: '1 / -1' }}>
           <label style={labelStyle}>Observações</label>
-          <textarea name="observations" value={formData.observations} onChange={handleChange} rows="3" style={inputStyle} />
+          <textarea name="observations" value={formData.observations} onChange={handleChange} rows={3} style={inputStyle} />
         </div>
 
         {/* Anamnese */}
@@ -190,15 +188,15 @@ export default function PatientForm() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Queixa principal <Tooltip text="Descreva o motivo principal que trouxe o paciente à terapia" /></label>
-              <textarea name="anamnesis.chiefComplaint" value={formData.anamnesis.chiefComplaint} onChange={handleChange} rows="2" style={inputStyle} />
+              <textarea name="anamnesis.chiefComplaint" value={formData.anamnesis.chiefComplaint} onChange={handleChange} rows={2} style={inputStyle} />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Histórico familiar</label>
-              <textarea name="anamnesis.familyHistory" value={formData.anamnesis.familyHistory} onChange={handleChange} rows="2" style={inputStyle} />
+              <textarea name="anamnesis.familyHistory" value={formData.anamnesis.familyHistory} onChange={handleChange} rows={2} style={inputStyle} />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Histórico médico</label>
-              <textarea name="anamnesis.medicalHistory" value={formData.anamnesis.medicalHistory} onChange={handleChange} rows="2" style={inputStyle} />
+              <textarea name="anamnesis.medicalHistory" value={formData.anamnesis.medicalHistory} onChange={handleChange} rows={2} style={inputStyle} />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Uso de medicamentos</label>
@@ -206,11 +204,11 @@ export default function PatientForm() {
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Objetivos terapêuticos</label>
-              <textarea name="anamnesis.therapeuticGoals" value={formData.anamnesis.therapeuticGoals} onChange={handleChange} rows="2" style={inputStyle} />
+              <textarea name="anamnesis.therapeuticGoals" value={formData.anamnesis.therapeuticGoals} onChange={handleChange} rows={2} style={inputStyle} />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Observações iniciais</label>
-              <textarea name="anamnesis.initialObservations" value={formData.anamnesis.initialObservations} onChange={handleChange} rows="2" style={inputStyle} />
+              <textarea name="anamnesis.initialObservations" value={formData.anamnesis.initialObservations} onChange={handleChange} rows={2} style={inputStyle} />
             </div>
           </div>
         </div>

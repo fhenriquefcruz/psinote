@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Eye,
-  FileText,
   LockKeyhole,
   Save
 } from 'lucide-react';
@@ -42,7 +41,7 @@ export default function DocumentGenerator({ patientId: routePatientId }) {
   const [templateId, setTemplateId] = useState(
     ENABLED_DOCUMENT_TEMPLATES[0]?.id || ''
   );
-  const [values, setValues] = useState({});
+  const [values, setValues] = useState(/** @type {Record<string, string>} */ ({}));
   const [draftId, setDraftId] = useState(draftParam || null);
   const [draftStatus, setDraftStatus] = useState('idle');
   const [errors, setErrors] = useState({});

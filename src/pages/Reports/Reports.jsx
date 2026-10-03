@@ -5,7 +5,8 @@ import { getSessionsByPatient } from '../../services/sessionService';
 import { toast } from 'react-toastify';
 import { jsPDF } from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
-import { FileText, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
+import { parseDateValue } from '../../utils/date.js';
 
 export default function Reports() {
   const { user, userProfile } = useAuth();
@@ -163,7 +164,7 @@ export default function Reports() {
 
     if (sessions.length > 0) {
       const tableData = sessions.map(s => {
-        const date = s.date?.toDate ? s.date.toDate() : new Date(s.date);
+        const date = parseDateValue(s.date) || new Date();
         return [
           date.toLocaleDateString('pt-BR') || '',
           s.mainTheme || '-',
@@ -186,14 +187,14 @@ export default function Reports() {
           2: { cellWidth: 25, halign: 'center' }
         }
       });
-      y = doc.lastAutoTable.finalY + 8;
+      y = (doc.lastAutoTable?.finalY ?? y) + 8;
     } else {
       doc.text('Nenhuma sessão registrada.', margin + 2, y);
       y += 8;
     }
 
     // ===== RODAPÉ =====
-    const totalPages = doc.internal.getNumberOfPages();
+    const totalPages = doc.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       doc.setFontSize(8);
@@ -287,9 +288,8 @@ export default function Reports() {
       margin: { left: margin, right: margin },
       alternateRowStyles: { fillColor: '#F8FAFC' }
     });
-    y = doc.lastAutoTable.finalY + 10;
 
-    const totalPages = doc.internal.getNumberOfPages();
+    const totalPages = doc.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       doc.setFontSize(8);

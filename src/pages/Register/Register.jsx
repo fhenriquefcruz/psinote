@@ -1,59 +1,92 @@
 import { useState } from 'react';
-import { useAuth } from '../../hooks/useAuth';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { useAuth } from '../../hooks/useAuth';
+import styles from '../AuthForm.module.css';
 
 export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+
     try {
       await register(name, email, password);
       toast.success('Conta criada com sucesso!');
       navigate('/dashboard');
-    } catch (error) {
-      toast.error('Erro ao criar conta: ' + error.message);
+    } catch {
+      toast.error('Não foi possível criar a conta.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-      <input
-        type="text"
-        placeholder="Nome completo"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        required
-        style={{ padding: '0.6rem', border: '1px solid #ccc', borderRadius: '6px' }}
-      />
-      <input
-        type="email"
-        placeholder="E-mail"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        style={{ padding: '0.6rem', border: '1px solid #ccc', borderRadius: '6px' }}
-      />
-      <input
-        type="password"
-        placeholder="Senha"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        style={{ padding: '0.6rem', border: '1px solid #ccc', borderRadius: '6px' }}
-      />
+    <form onSubmit={handleSubmit} className={styles.form}>
+      <div>
+        <h1 className={styles.heading}>Criar conta</h1>
+        <p className={styles.description}>
+          Cadastre uma conta profissional para começar.
+        </p>
+      </div>
+
+      <div className={styles.field}>
+        <label className={styles.label} htmlFor="register-name">Nome completo</label>
+        <input
+          id="register-name"
+          type="text"
+          autoComplete="name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          required
+          className={styles.input}
+        />
+      </div>
+
+      <div className={styles.field}>
+        <label className={styles.label} htmlFor="register-email">E-mail</label>
+        <input
+          id="register-email"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          required
+          className={styles.input}
+        />
+      </div>
+
+      <div className={styles.field}>
+        <label className={styles.label} htmlFor="register-password">Senha</label>
+        <input
+          id="register-password"
+          type="password"
+          autoComplete="new-password"
+          minLength={6}
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          required
+          className={styles.input}
+        />
+      </div>
+
       <button
         type="submit"
-        style={{ padding: '0.6rem', background: '#4F46E5', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+        disabled={loading}
+        className={styles.primaryButton}
       >
-        Cadastrar
+        {loading ? 'Criando...' : 'Cadastrar'}
       </button>
-      <Link to="/login" style={{ textAlign: 'center', color: '#4F46E5' }}>Já tenho conta</Link>
+
+      <div className={styles.links}>
+        <Link to="/login">Já tenho conta</Link>
+      </div>
     </form>
   );
 }

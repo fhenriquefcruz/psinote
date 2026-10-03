@@ -152,6 +152,35 @@ small {
   font-size: 0.875rem;
 }
 
+.Toastify__toast-theme--colored.Toastify__toast--success {
+  background: #1f6b4c;
+  color: #ffffff;
+}
+
+.Toastify__toast-theme--colored.Toastify__toast--error {
+  background: #923838;
+  color: #ffffff;
+}
+
+.Toastify__toast-theme--colored.Toastify__toast--warning {
+  background: #76500f;
+  color: #ffffff;
+}
+
+.Toastify__toast-theme--colored.Toastify__toast--info {
+  background: #285d7d;
+  color: #ffffff;
+}
+
+.Toastify__toast-theme--colored .Toastify__close-button,
+.Toastify__toast-theme--colored .Toastify__toast-icon {
+  color: currentColor;
+}
+
+.Toastify__toast-theme--colored .Toastify__close-button {
+  opacity: 0.9;
+}
+
 /* ============================================
    UTILITÁRIOS
    ============================================ */

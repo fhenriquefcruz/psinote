@@ -75,6 +75,7 @@ export const createDocumentDraft = async ({
   return { id: draftRef.id, ...draftData };
 };
 
+/** @returns {Promise<DocumentDraftRecord | null>} */
 export const getDocumentDraft = async (draftId, psychologistId) => {
   if (!draftId) return null;
   const snapshot = await getDoc(doc(db, COLLECTION, draftId));
@@ -85,6 +86,7 @@ export const getDocumentDraft = async (draftId, psychologistId) => {
   return { id: snapshot.id, ...data };
 };
 
+/** @returns {Promise<DocumentDraftRecord[]>} */
 export const getDocumentDrafts = async (psychologistId, patientId = null) => {
   let draftsQuery = query(
     collection(db, COLLECTION),

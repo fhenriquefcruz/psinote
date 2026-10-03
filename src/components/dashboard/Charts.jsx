@@ -1,9 +1,8 @@
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, ComposedChart, Bar, BarChart } from 'recharts';
+import { XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, ComposedChart, Bar, BarChart } from 'recharts';
 
 export default function Charts({ data, monthlyData }) {
   // Se não houver dados de humor, mostrar mensagem
   const hasHumorData = data && data.length > 0 && data.some(d => d.humor > 0);
-  const hasMonthlyData = monthlyData && monthlyData.length > 0 && monthlyData.some(d => d.sessions > 0);
 
   const defaultMonthly = [
     { month: 'Jan', sessions: 0 },
@@ -25,7 +24,7 @@ export default function Charts({ data, monthlyData }) {
   ];
   const humor = data && data.length > 0 ? data : defaultHumor;
 
-  const CustomTooltip = ({ active, payload, label, type }) => {
+  const CustomTooltip = ({ active = false, payload = [], label = '', type }) => {
     if (active && payload && payload.length) {
       return (
         <div style={{

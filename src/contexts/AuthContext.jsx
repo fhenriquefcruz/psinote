@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -11,7 +11,7 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
-export const AuthContext = createContext();
+export const AuthContext = createContext(/** @type {AuthContextValue | null} */ (null));
 
 const SAFE_PROFILE_FIELDS = new Set(['name', 'phone', 'photoURL', 'crp', 'crpUf']);
 
@@ -75,7 +75,7 @@ export function AuthProvider({ children }) {
         setUser(firebaseUser);
         setUserProfile({ ...profile, role });
         setUserRole(role);
-      } catch (error) {
+      } catch (_error) {
         console.error('Falha ao inicializar sessão autenticada');
         setUser(null);
         setUserProfile(null);
