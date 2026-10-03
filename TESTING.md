@@ -19,7 +19,8 @@ Blocks known unsafe patterns in the browser bundle, including:
 - public Supabase document URL generation;
 - direct destructive Firestore deletes;
 - direct destructive Firebase Storage deletes;
-- destructive Supabase Storage removal.
+- destructive Supabase Storage removal;
+- clinical narrative fields referenced by either the global-search reader or search-index writer.
 
 ### Domain unit tests
 `npm run test:unit`
@@ -37,7 +38,9 @@ Current pure-domain coverage includes:
 - conditional declaration validation;
 - declaration objective rendering safeguards;
 - psychological report structure;
-- restricted-template emission denial.
+- restricted-template emission denial;
+- accent/case/whitespace search normalization;
+- command-palette keyword matching.
 
 ### Firebase Security Rules
 `npm run test:rules`
@@ -66,7 +69,12 @@ Runs Firestore and Storage emulators using a demo project ID and tests:
 - immutable draft template/patient ownership;
 - paired draft -> issued document transition;
 - immutable issued document metadata;
-- private attachment creation and cross-patient denial.
+- private attachment creation and cross-patient denial;
+- search-entry tenant isolation;
+- source-title/searchability integrity;
+- clinical-field smuggling denial;
+- source-bound session/document/draft metadata;
+- search-entry entity identity immutability.
 
 The tests use `@firebase/rules-unit-testing`, which supports mock authenticated contexts against the Emulator Suite without contacting production.
 
