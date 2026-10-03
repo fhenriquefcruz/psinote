@@ -5,6 +5,15 @@ import { createPatient, updatePatient, getPatientById } from '../../services/pat
 import { toast } from 'react-toastify';
 import Tooltip from '../../components/common/Tooltip/Tooltip';
 
+const EMPTY_ANAMNESIS = {
+  chiefComplaint: '',
+  familyHistory: '',
+  medicalHistory: '',
+  medications: '',
+  therapeuticGoals: '',
+  initialObservations: ''
+};
+
 export default function PatientForm() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -22,14 +31,7 @@ export default function PatientForm() {
     address: '',
     emergencyContact: '',
     observations: '',
-    anamnesis: {
-      chiefComplaint: '',
-      familyHistory: '',
-      medicalHistory: '',
-      medications: '',
-      therapeuticGoals: '',
-      initialObservations: ''
-    }
+    anamnesis: { ...EMPTY_ANAMNESIS }
   });
 
   useEffect(() => {
@@ -49,13 +51,9 @@ export default function PatientForm() {
             address: data.address || '',
             emergencyContact: data.emergencyContact || '',
             observations: data.observations || '',
-            anamnesis: data.anamnesis || {
-              chiefComplaint: '',
-              familyHistory: '',
-              medicalHistory: '',
-              medications: '',
-              therapeuticGoals: '',
-              initialObservations: ''
+            anamnesis: {
+              ...EMPTY_ANAMNESIS,
+              ...(data.anamnesis || {})
             }
           });
         }
