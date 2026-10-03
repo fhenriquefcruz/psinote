@@ -34,7 +34,7 @@ const writeEntry = async ({
       entityType,
       entityId,
       patientId: patientId || null,
-      title: String(title).slice(0, 160),
+      title: String(title),
       status: status || null,
       searchable: Boolean(searchable),
       date: date || null,
