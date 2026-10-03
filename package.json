@@ -8,9 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "security:check": "node scripts/security-check.mjs",
-    "validate": "npm run security:dependencies && npm run security:check && npm run test:rules && npm run build",
+    "validate": "npm run security:dependencies && npm run security:check && npm run test:unit && npm run test:rules && npm run build",
     "security:dependencies": "npm audit --audit-level=moderate",
-    "test:rules": "npx --yes firebase-tools@15.30.2 emulators:exec --project demo-psinote-rules --only firestore,storage \"node --test tests/security-rules/*.test.mjs\""
+    "test:rules": "npx --yes firebase-tools@15.30.2 emulators:exec --project demo-psinote-rules --only firestore,storage \"node --test tests/security-rules/*.test.mjs\"",
+    "test:unit": "node --test tests/unit/*.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",
