@@ -1,4 +1,4 @@
-import { deleteObject, getBlob, ref, uploadBytes } from 'firebase/storage';
+import { getBlob, ref, uploadBytes } from 'firebase/storage';
 import { storage } from '../firebase/config';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -71,7 +71,3 @@ export const getPrivateDocumentBlobUrl = async (storagePath) => {
   return URL.createObjectURL(blob);
 };
 
-export const deletePrivateDocument = async (storagePath) => {
-  if (!storagePath) return;
-  await deleteObject(ref(storage, storagePath));
-};

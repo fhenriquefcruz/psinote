@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { getAppointments, createAppointment, updateAppointmentStatus, deleteAppointment, rescheduleAppointment } from '../../services/appointmentService';
+import { getAppointments, createAppointment, updateAppointmentStatus, rescheduleAppointment } from '../../services/appointmentService';
 import { getPatients } from '../../services/patientService';
 import { toast } from 'react-toastify';
 import { Plus, X, Check, Calendar as CalendarIcon, Clock as ClockIcon, Search } from 'lucide-react';
@@ -124,16 +124,6 @@ export default function Agenda() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta consulta?')) return;
-    try {
-      await deleteAppointment(id, user.uid);
-      toast.success('Consulta excluída');
-      await loadData();
-    } catch (error) {
-      toast.error('Erro ao excluir: ' + error.message);
-    }
-  };
 
   const filteredAppointments = appointments.filter(a => {
     if (filter !== 'all' && a.status !== filter) return false;
@@ -266,7 +256,6 @@ export default function Agenda() {
                   {(a.status === 'canceled' || a.status === 'missed') && (
                     <button onClick={() => handleReschedule(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F59E0B', padding: '0.2rem 0.4rem' }} title="Reagendar">🔄</button>
                   )}
-                  <button onClick={() => handleDelete(a.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.2rem 0.4rem' }} title="Excluir">🗑️</button>
                 </div>
               </div>
             );

@@ -35,6 +35,41 @@ service cloud.firestore {
       return request.resource.data.psychologistId == resource.data.psychologistId;
     }
 
+    function preservesCreationMetadata() {
+      return request.resource.data.get('createdAt', null)
+          == resource.data.get('createdAt', null)
+        && request.resource.data.get('createdBy', null)
+          == resource.data.get('createdBy', null);
+    }
+
+    function preservesPatientLink() {
+      return request.resource.data.get('patientId', null)
+        == resource.data.get('patientId', null);
+    }
+
+    function safeActivityPayload() {
+      return request.resource.data.keys().hasOnly([
+          'psychologistId',
+          'user',
+          'action',
+          'target',
+          'targetId',
+          'details',
+          'timestamp'
+        ])
+        && request.resource.data.user == request.auth.uid
+        && request.resource.data.details.keys().hasOnly([
+          'version',
+          'status',
+          'patientId',
+          'patientLinked',
+          'fileType',
+          'fileSize',
+          'storageProvider',
+          'originalId'
+        ]);
+    }
+
     match /users/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
 
@@ -54,40 +89,51 @@ service cloud.firestore {
           'updatedAt'
         ]);
 
-      // Privileged account lifecycle/role changes are intentionally denied to
-      // browser clients. They must be performed by a trusted Admin SDK backend.
       allow delete: if false;
     }
 
     match /patients/{recordId} {
       allow create: if ownsIncomingRecord();
-      allow read, delete: if ownsExistingRecord();
-      allow update: if ownsExistingRecord() && preservesOwnership();
+      allow read: if ownsExistingRecord();
+      allow update: if ownsExistingRecord()
+        && preservesOwnership()
+        && preservesCreationMetadata();
+      allow delete: if false;
     }
 
     match /sessions/{recordId} {
       allow create: if ownsIncomingRecord();
-      allow read, delete: if ownsExistingRecord();
-      allow update: if ownsExistingRecord() && preservesOwnership();
+      allow read: if ownsExistingRecord();
+      allow update: if ownsExistingRecord()
+        && preservesOwnership()
+        && preservesPatientLink()
+        && preservesCreationMetadata();
+      allow delete: if false;
     }
 
     match /appointments/{recordId} {
       allow create: if ownsIncomingRecord();
-      allow read, delete: if ownsExistingRecord();
-      allow update: if ownsExistingRecord() && preservesOwnership();
+      allow read: if ownsExistingRecord();
+      allow update: if ownsExistingRecord()
+        && preservesOwnership()
+        && preservesPatientLink()
+        && preservesCreationMetadata();
+      allow delete: if false;
     }
 
     match /documents/{recordId} {
       allow create: if ownsIncomingRecord();
-      allow read, delete: if ownsExistingRecord();
-      allow update: if ownsExistingRecord() && preservesOwnership();
+      allow read: if ownsExistingRecord();
+      allow update: if ownsExistingRecord()
+        && preservesOwnership()
+        && preservesPatientLink()
+        && preservesCreationMetadata();
+      allow delete: if false;
     }
 
     match /activities/{recordId} {
-      allow create: if ownsIncomingRecord();
+      allow create: if ownsIncomingRecord() && safeActivityPayload();
       allow read: if ownsExistingRecord();
-
-      // Activity records are append-only for browser clients.
       allow update, delete: if false;
     }
 

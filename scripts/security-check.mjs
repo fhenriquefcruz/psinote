@@ -25,6 +25,18 @@ const checks = [
   {
     label: 'public Supabase document URL',
     pattern: /\.getPublicUrl\s*\(/
+  },
+  {
+    label: 'destructive Firestore delete in browser bundle',
+    pattern: /\bdeleteDoc\s*\(/
+  },
+  {
+    label: 'destructive Firebase Storage delete in browser bundle',
+    pattern: /\bdeleteObject\s*\(/
+  },
+  {
+    label: 'destructive Supabase Storage remove in browser bundle',
+    pattern: /\.storage[\s\S]{0,120}\.remove\s*\(/
   }
 ];
 

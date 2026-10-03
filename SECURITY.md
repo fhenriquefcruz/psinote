@@ -6,7 +6,7 @@ Protect psychological-service records against cross-account access, accidental p
 
 The browser is treated as an untrusted client.
 
-## Phase 0 controls
+## Security controls
 
 - Firestore deny-by-default rules.
 - Tenant isolation by authenticated `request.auth.uid` and record `psychologistId`.
@@ -20,6 +20,11 @@ The browser is treated as an untrusted client.
 - Audit payloads intentionally exclude clinical narrative.
 - No hard-coded administrator e-mail.
 - No new Supabase public document URL generation.
+- Browser hard delete denied for clinical records and private files.
+- Patient linkage and creation metadata are immutable through normal browser updates.
+- Firebase Emulator Suite authorization tests are required in CI.
+- Dependency audit blocks moderate/high/critical known vulnerabilities.
+- Legacy Supabase Storage SDK has been removed from the browser bundle.
 
 ## Threat model
 
@@ -46,17 +51,16 @@ The browser is treated as an untrusted client.
 
 ## Known remaining security work
 
-Before merge/deployment:
-- deploy and test Firestore/Storage rules in emulator/non-production;
+Before production completion:
 - bootstrap administrator custom claim securely;
+- deploy validated Firestore/Storage rules to a non-production Firebase environment before production;
 - inventory legacy Supabase public URLs;
-- migrate historical documents to private storage;
-- add rule-unit tests for IDOR/BOLA;
+- migrate historical documents to private storage and revoke legacy public access;
 - add E2E auth/session-expiry tests;
 - define CSP and security headers for the production hosting model;
-- add dependency/SCA scanning;
 - define incident response and restore exercises;
-- move audit creation for high-value events to trusted backend.
+- move audit creation for high-value events to trusted backend;
+- implement privileged retention/disposal workflow rather than browser deletion.
 
 ## Logging rules
 

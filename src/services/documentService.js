@@ -2,7 +2,6 @@ import {
   collection,
   addDoc,
   getDocs,
-  deleteDoc,
   doc,
   query,
   where,
@@ -13,10 +12,8 @@ import {
 import { db } from '../firebase/config';
 import {
   uploadPrivateDocument,
-  getPrivateDocumentBlobUrl,
-  deletePrivateDocument
+  getPrivateDocumentBlobUrl
 } from './fileStorageService';
-import { deleteFromSupabase } from './supabaseStorage';
 import { addActivity } from './activityService';
 
 const COLLECTION = 'documents';
@@ -66,8 +63,8 @@ export const uploadDocument = async (psychologistId, file, patientId, category, 
     });
     return { id: docRef.id, ...docData };
   } catch (error) {
-    // Avoid orphaned uploads if metadata persistence fails.
-    await deletePrivateDocument(storedFile.storagePath).catch(() => {});
+    // The browser cannot destructively delete uploaded clinical files.
+    // A trusted maintenance workflow will reconcile orphaned uploads.
     throw error;
   }
 };
@@ -119,32 +116,3 @@ export const getDocumentAccessUrl = async (documentData, psychologistId) => {
   throw new Error('Arquivo indisponível.');
 };
 
-export const deleteDocument = async (documentId, psychologistId) => {
-  const docRef = doc(db, COLLECTION, documentId);
-  const docSnap = await getDoc(docRef);
-  if (!docSnap.exists()) throw new Error('Documento não encontrado.');
-
-  const data = docSnap.data();
-  assertDocumentOwner(data, psychologistId);
-
-  if (data.storageProvider === 'firebase' && data.storagePath) {
-    await deletePrivateDocument(data.storagePath);
-  } else if (data.storagePath) {
-    // Transitional support for legacy Supabase objects.
-    await deleteFromSupabase(data.storagePath);
-  }
-
-  await deleteDoc(docRef);
-
-  await addActivity({
-    psychologistId,
-    user: psychologistId,
-    action: 'document.deleted',
-    target: 'document',
-    targetId: documentId,
-    details: {
-      storageProvider: data.storageProvider || 'legacy',
-      patientLinked: Boolean(data.patientId)
-    }
-  });
-};

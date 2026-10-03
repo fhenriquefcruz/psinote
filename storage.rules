@@ -13,10 +13,17 @@ service firebase.storage {
     }
 
     match /users/{uid}/documents/{allPaths=**} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid)
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && resource == null
+        && request.resource.size > 0
         && request.resource.size <= 10 * 1024 * 1024
         && allowedDocumentType();
+
+      // Browser clients never destructively replace or remove stored clinical
+      // files. Retention/disposal requires a trusted privileged workflow.
+      allow update, delete: if false;
     }
 
     match /{allPaths=**} {
