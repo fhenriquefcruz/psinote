@@ -18,7 +18,7 @@ export default function PatientProfile() {
   useEffect(() => {
     const load = async () => {
       try {
-        const p = await getPatientById(id);
+        const p = await getPatientById(id, user.uid);
         setPatient(p);
         const s = await getSessionsByPatient(id, user.uid);
         setSessions(s);
@@ -30,7 +30,7 @@ export default function PatientProfile() {
         setLoading(false);
       }
     };
-    if (id) load();
+    if (id && user) load();
   }, [id, user]);
 
   const handleArchive = async () => {
