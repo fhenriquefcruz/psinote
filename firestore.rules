@@ -16,8 +16,9 @@ service cloud.firestore {
     }
 
     function isActiveUser() {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return userProfileExists()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.blocked != true;
+        && (!profile.keys().hasAny(['blocked']) || profile.blocked != true);
     }
 
     function ownsExistingRecord() {
