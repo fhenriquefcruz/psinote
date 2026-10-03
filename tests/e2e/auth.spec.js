@@ -26,7 +26,7 @@ test('user can register, logout and login again against emulators', async ({ pag
 
   await page.getByLabel('E-mail').fill(account.email);
   await page.getByLabel('Senha').fill(account.password);
-  await page.getByRole('button', { name: 'Entrar' }).click();
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
 
   await expect(page).toHaveURL(/\/psinote\/dashboard$/);
 });
