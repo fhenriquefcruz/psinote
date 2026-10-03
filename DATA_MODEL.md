@@ -106,6 +106,30 @@ System templates are versioned in code under `src/domain/documentTemplates.js`. 
 
 A permanent public URL is not target-state metadata.
 
+### search_entries
+Derived, non-authoritative metadata used by the global command/search palette.
+
+Allowed source types:
+- patient
+- session
+- document
+- draft
+
+The index intentionally contains only navigation metadata such as title, status, date/session number, document kind/template/version and source IDs. It must not contain clinical narrative, anamnesis, session evolution, observations, interventions, referrals, agreements, next steps or tags.
+
+Security Rules validate each index entry against its source record. Search never grants source access; selecting a result still resolves the original tenant-protected entity.
+
+Key fields:
+- psychologistId
+- entityType / entityId
+- patientId
+- title
+- status
+- searchable
+- date / sessionNumber
+- kind / templateId / templateVersion / version
+- createdAt / updatedAt
+
 ### activities
 Low-sensitivity operational activity feed. This is not a substitute for an immutable compliance audit log.
 
