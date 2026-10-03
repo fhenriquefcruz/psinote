@@ -143,3 +143,58 @@ type DocumentRecord = {
   fileURL?: string;
   [key: string]: unknown;
 };
+
+
+type UserProfileRecord = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  photoURL?: string;
+  crp?: string;
+  crpUf?: string;
+  role?: string;
+  blocked?: boolean;
+  [key: string]: unknown;
+};
+
+type AuthContextValue = {
+  user: import('firebase/auth').User | null;
+  userProfile: UserProfileRecord | null;
+  userRole: string;
+  loading: boolean;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<import('firebase/auth').UserCredential>;
+  register: (
+    name: string,
+    email: string,
+    password: string
+  ) => Promise<import('firebase/auth').UserCredential>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updateUserProfile: (data: Record<string, unknown>) => Promise<void>;
+  isAdmin: boolean;
+};
+
+type ThemeContextValue = {
+  theme: string;
+  toggleTheme: () => void;
+};
+
+type AdminAccountRecord = {
+  id: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  blocked?: boolean;
+  [key: string]: unknown;
+};
+
+declare module 'jspdf' {
+  interface jsPDF {
+    lastAutoTable?: {
+      finalY: number;
+    };
+  }
+}
