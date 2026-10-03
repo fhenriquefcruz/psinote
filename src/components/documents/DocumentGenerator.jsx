@@ -1,255 +1,580 @@
-// src/components/documents/DocumentGenerator.jsx
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import { getPatientById } from '../../services/patientService';
-import { DOCUMENT_TYPES, DOCUMENT_LABELS, getTemplate } from './DocumentTemplates';
-import { generateDocumentPDF } from '../../services/documentGeneratorService';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Eye,
+  FileText,
+  LockKeyhole,
+  Save
+} from 'lucide-react';
 import { toast } from 'react-toastify';
-import { Download, Eye, Save, X } from 'lucide-react';
-import { uploadDocument } from '../../services/documentService';
+import { useAuth } from '../../hooks/useAuth';
+import { getPatientById, getPatients } from '../../services/patientService';
+import {
+  createDocumentDraft,
+  getDocumentDraft,
+  updateDocumentDraft
+} from '../../services/documentDraftService';
+import { issueGeneratedDocument } from '../../services/documentService';
+import { generateDocumentPDF } from '../../services/documentGeneratorService';
+import {
+  DOCUMENT_AVAILABILITY,
+  DOCUMENT_TEMPLATES,
+  ENABLED_DOCUMENT_TEMPLATES,
+  getDocumentTemplate,
+  initialDocumentValues,
+  renderDocumentModel,
+  validateDocumentValues
+} from '../../domain/documentTemplates';
+import { safeDocumentFileName } from '../../domain/documents';
+import styles from './DocumentGenerator.module.css';
 
-export default function DocumentGenerator({ patientId, onClose }) {
+export default function DocumentGenerator({ patientId: routePatientId }) {
   const { user, userProfile } = useAuth();
-  const [docType, setDocType] = useState(DOCUMENT_TYPES.REPORT);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const draftParam = searchParams.get('draftId');
+
+  const [patients, setPatients] = useState([]);
+  const [patientId, setPatientId] = useState(routePatientId || '');
   const [patient, setPatient] = useState(null);
-  const [formData, setFormData] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [templateId, setTemplateId] = useState(
+    ENABLED_DOCUMENT_TEMPLATES[0]?.id || ''
+  );
+  const [values, setValues] = useState({});
+  const [draftId, setDraftId] = useState(draftParam || null);
+  const [draftStatus, setDraftStatus] = useState('idle');
+  const [errors, setErrors] = useState({});
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [working, setWorking] = useState(false);
+  const [loading, setLoading] = useState(Boolean(draftParam));
 
-  useEffect(() => {
-    if (patientId && user) {
-      const loadPatient = async () => {
-        const p = await getPatientById(patientId, user.uid);
-        setPatient(p);
-        // Pré-preenche campos com dados do paciente
-        const template = getTemplate(docType);
-        const initialData = {};
-        template.fields.forEach(field => {
-          if (field.id === 'patientName') initialData[field.id] = p?.name || '';
-          if (field.id === 'patientBirth') initialData[field.id] = p?.birthDate || '';
-          if (field.id === 'patientDocument') initialData[field.id] = p?.cpf || '';
-          if (field.defaultValue) initialData[field.id] = field.defaultValue;
-          if (field.id === 'place') initialData[field.id] = 'Campo Grande - MS';
-          if (field.id === 'date') initialData[field.id] = new Date().toISOString().slice(0,10);
-        });
-        setFormData(initialData);
-      };
-      loadPatient();
-    }
-  }, [patientId, docType, user]);
+  const template = useMemo(
+    () => getDocumentTemplate(templateId),
+    [templateId]
+  );
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  const revokePreview = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl('');
   };
 
-  const handleGenerate = async (saveToStorage = false) => {
-    if (!userProfile?.crp || !userProfile?.crpUf) {
-      toast.error('Informe seu registro profissional nas configurações antes de gerar documentos psicológicos.');
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    getPatients(user.uid, 'active')
+      .then(setPatients)
+      .catch(() => toast.error('Não foi possível carregar os pacientes.'));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !draftParam) return;
+
+    let active = true;
+
+    const loadDraft = async () => {
+      setLoading(true);
+      try {
+        const draft = await getDocumentDraft(draftParam, user.uid);
+        if (!draft || draft.status !== 'draft') {
+          toast.error('Rascunho indisponível.');
+          navigate('/documents', { replace: true });
+          return;
+        }
+
+        const draftTemplate = getDocumentTemplate(
+          draft.templateId,
+          draft.templateVersion
+        );
+
+        if (!draftTemplate) {
+          toast.error('A versão do template deste rascunho não está disponível.');
+          navigate('/documents', { replace: true });
+          return;
+        }
+
+        if (!active) return;
+        setDraftId(draft.id);
+        setTemplateId(draft.templateId);
+        setPatientId(draft.patientId || '');
+        setValues(draft.values || {});
+        setDraftStatus('saved');
+      } catch (error) {
+        toast.error(error.message);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadDraft();
+    return () => {
+      active = false;
+    };
+  }, [draftParam, navigate, user]);
+
+  useEffect(() => {
+    if (!user || !patientId) {
+      setPatient(null);
       return;
     }
 
-    setLoading(true);
+    getPatientById(patientId, user.uid)
+      .then(setPatient)
+      .catch(() => toast.error('Não foi possível carregar o paciente.'));
+  }, [patientId, user]);
+
+  useEffect(() => {
+    if (!template || draftParam) return;
+
+    setValues((current) => {
+      const next = initialDocumentValues(template);
+      return Object.keys(current).length ? current : next;
+    });
+  }, [draftParam, template]);
+
+  const selectTemplate = (nextTemplateId) => {
+    if (draftId) {
+      toast.info('O template fica bloqueado depois que o rascunho é salvo.');
+      return;
+    }
+
+    revokePreview();
+    setTemplateId(nextTemplateId);
+    const nextTemplate = getDocumentTemplate(nextTemplateId);
+    setValues(nextTemplate ? initialDocumentValues(nextTemplate) : {});
+    setErrors({});
+    setDraftStatus('idle');
+  };
+
+  const changeValue = (fieldId, value) => {
+    revokePreview();
+    setValues((current) => ({ ...current, [fieldId]: value }));
+    setErrors((current) => {
+      if (!current[fieldId]) return current;
+      const next = { ...current };
+      delete next[fieldId];
+      return next;
+    });
+    if (draftId) setDraftStatus('dirty');
+  };
+
+  const ensureProfessionalIdentity = () => {
+    if (!userProfile?.name || !userProfile?.crp || !userProfile?.crpUf) {
+      toast.error(
+        'Complete nome e registro profissional (CRP/UF) nas configurações antes de emitir.'
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const persistDraft = async () => {
+    if (!patientId) {
+      toast.warning('Selecione a pessoa atendida.');
+      return null;
+    }
+
+    if (!template || template.availability !== DOCUMENT_AVAILABILITY.ENABLED) {
+      toast.warning('Este modelo ainda não está disponível para emissão.');
+      return null;
+    }
+
+    setWorking(true);
+    setDraftStatus('saving');
+
     try {
-      const template = getTemplate(docType);
-      const pdfBlob = await generateDocumentPDF({
-        template,
-        formData,
-        userProfile,
-        patient,
-        docType,
-      });
-      const url = URL.createObjectURL(pdfBlob);
-      // Se salvar no storage
-      if (saveToStorage) {
-        setSaving(true);
-        const fileName = `${DOCUMENT_LABELS[docType]}_${patient?.name || 'paciente'}_${new Date().toISOString().slice(0,10)}.pdf`;
-        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-        await uploadDocument(user.uid, file, patientId, 'documents', fileName);
-        toast.success('Documento salvo no sistema!');
-        setSaving(false);
-      } else {
-        // Baixar diretamente
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${DOCUMENT_LABELS[docType]}_${patient?.name || 'paciente'}_${new Date().toISOString().slice(0,10)}.pdf`;
-        link.click();
-        toast.success('Documento gerado com sucesso!');
+      if (draftId) {
+        await updateDocumentDraft(draftId, user.uid, values);
+        setDraftStatus('saved');
+        toast.success('Rascunho atualizado.');
+        return draftId;
       }
+
+      const created = await createDocumentDraft({
+        psychologistId: user.uid,
+        patientId,
+        patientName: patient?.name || '',
+        template,
+        values
+      });
+
+      setDraftId(created.id);
+      setDraftStatus('saved');
+      setSearchParams({ draftId: created.id }, { replace: true });
+      toast.success('Rascunho salvo.');
+      return created.id;
     } catch (error) {
-      toast.error('Erro ao gerar documento: ' + error.message);
+      setDraftStatus('error');
+      toast.error('Não foi possível salvar o rascunho: ' + error.message);
+      return null;
     } finally {
-      setLoading(false);
-      setSaving(false);
+      setWorking(false);
     }
   };
 
-  const template = getTemplate(docType);
-  // Combinar campos específicos com os comuns
-  const allFields = template.fields;
+  const buildValidatedModel = () => {
+    if (!patientId || !patient) {
+      toast.warning('Selecione a pessoa atendida.');
+      return null;
+    }
+
+    if (!ensureProfessionalIdentity()) return null;
+
+    const validation = validateDocumentValues(template, values);
+    setErrors(validation.errors);
+
+    if (!validation.valid) {
+      toast.warning('Revise os campos obrigatórios antes de continuar.');
+      return null;
+    }
+
+    try {
+      return renderDocumentModel({
+        template,
+        values,
+        patient,
+        professional: userProfile
+      });
+    } catch (error) {
+      toast.error(error.message);
+      return null;
+    }
+  };
+
+  const previewPdf = async () => {
+    const model = buildValidatedModel();
+    if (!model) return;
+
+    setWorking(true);
+    try {
+      const pdf = await generateDocumentPDF({ model, template });
+      revokePreview();
+      setPreviewUrl(URL.createObjectURL(pdf));
+    } catch (error) {
+      toast.error('Não foi possível gerar a prévia: ' + error.message);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const issueDocument = async () => {
+    const model = buildValidatedModel();
+    if (!model) return;
+
+    if (
+      !window.confirm(
+        'Emitir este documento? Depois da emissão, esta versão não poderá ser alterada.'
+      )
+    ) {
+      return;
+    }
+
+    setWorking(true);
+
+    try {
+      let persistedDraftId = draftId;
+
+      if (persistedDraftId) {
+        await updateDocumentDraft(persistedDraftId, user.uid, values);
+      } else {
+        const created = await createDocumentDraft({
+          psychologistId: user.uid,
+          patientId,
+          patientName: patient?.name || '',
+          template,
+          values
+        });
+        persistedDraftId = created.id;
+        setDraftId(created.id);
+      }
+
+      const pdf = await generateDocumentPDF({ model, template });
+      const fileName = safeDocumentFileName(
+        template.label,
+        patient?.name,
+        values.issueDate
+      );
+      const file = new File([pdf], fileName, { type: 'application/pdf' });
+
+      await issueGeneratedDocument({
+        psychologistId: user.uid,
+        draftId: persistedDraftId,
+        template,
+        patient,
+        file
+      });
+
+      toast.success('Documento emitido e armazenado como versão imutável.');
+      navigate('/documents', { replace: true });
+    } catch (error) {
+      toast.error('Não foi possível emitir: ' + error.message);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="surface empty-state">Carregando rascunho...</div>;
+  }
 
   return (
-    <div style={{ 
-      maxWidth: '800px', 
-      margin: '0 auto', 
-      padding: '1.5rem', 
-      background: 'var(--bg-primary)', 
-      borderRadius: 'var(--radius)',
-      border: '1px solid var(--border-color)',
-      boxShadow: 'var(--shadow-lg)'
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h2 style={{ margin: 0 }}>Gerar Documento</h2>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-          <X size={24} />
-        </button>
-      </div>
+    <div className={styles.workspace}>
+      <aside className={styles.catalog}>
+        <div className={styles.catalogHeader}>
+          <div className="section-kicker">Modelos</div>
+          <h2>Documentos</h2>
+          <p>
+            Modalidades psicológicas e materiais administrativos são tratados separadamente.
+          </p>
+        </div>
 
-      <div
-        role="note"
-        style={{
-          marginBottom: '1rem',
-          padding: '0.8rem 1rem',
-          border: '1px solid var(--border-color)',
-          borderRadius: 'var(--radius-sm)',
-          background: 'var(--bg-tertiary)',
-          color: 'var(--text-secondary)',
-          fontSize: '0.85rem'
-        }}
-      >
-        <strong>Modelo em revisão normativa.</strong> O conteúdo gerado é um rascunho e não substitui
-        a avaliação técnica, ética e documental da pessoa profissional responsável.
-      </div>
+        <div className={styles.templateList}>
+          {DOCUMENT_TEMPLATES.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              className={
+                item.id === templateId
+                  ? styles.templateActive
+                  : styles.templateButton
+              }
+              onClick={() => selectTemplate(item.id)}
+            >
+              <span>{item.label}</span>
+              <small>
+                {item.family === 'psychological'
+                  ? 'Documento psicológico'
+                  : 'Administrativo'}
+                {' • v' + item.version}
+              </small>
+              {item.availability !== DOCUMENT_AVAILABILITY.ENABLED && (
+                <LockKeyhole size={14} aria-hidden="true" />
+              )}
+            </button>
+          ))}
+        </div>
+      </aside>
 
-      {/* Seleção de Tipo */}
-      <div style={{ marginBottom: '1rem' }}>
-        <label style={{ display: 'block', marginBottom: '0.3rem', fontWeight: 500 }}>Tipo de Documento</label>
+      <section className={styles.editor}>
+        <header className={styles.editorHeader}>
+          <div>
+            <div className="section-kicker">
+              {draftId ? 'Rascunho salvo' : 'Novo documento'}
+            </div>
+            <h1>{template?.label || 'Documento'}</h1>
+            <p>{template?.guidance || template?.restriction}</p>
+          </div>
+
+          {draftId && (
+            <span
+              className={
+                draftStatus === 'dirty'
+                  ? 'badge badge-warning'
+                  : draftStatus === 'error'
+                    ? 'badge badge-danger'
+                    : 'badge badge-success'
+              }
+            >
+              {draftStatus === 'dirty'
+                ? 'Alterações pendentes'
+                : draftStatus === 'saving'
+                  ? 'Salvando...'
+                  : draftStatus === 'error'
+                    ? 'Falha ao salvar'
+                    : 'Rascunho salvo'}
+            </span>
+          )}
+        </header>
+
+        {template?.availability !== DOCUMENT_AVAILABILITY.ENABLED ? (
+          <RestrictedTemplate template={template} />
+        ) : (
+          <>
+            <div className={styles.notice} role="note">
+              <AlertTriangle size={18} aria-hidden="true" />
+              <div>
+                <strong>Responsabilidade profissional</strong>
+                <p>
+                  O PsiNote estrutura e versiona o documento; a pessoa profissional continua responsável pela pertinência, linguagem, finalidade e conteúdo emitido.
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.formGrid}>
+              <div className={'field ' + styles.fullWidth}>
+                <label className="field-label" htmlFor="document-patient">
+                  Pessoa atendida
+                </label>
+                <select
+                  id="document-patient"
+                  className="select"
+                  value={patientId}
+                  disabled={Boolean(draftId) || Boolean(routePatientId)}
+                  onChange={(event) => {
+                    revokePreview();
+                    setPatientId(event.target.value);
+                  }}
+                >
+                  <option value="">Selecione</option>
+                  {patients.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {template.fields.map((field) => (
+                <DocumentField
+                  key={field.id}
+                  field={field}
+                  value={values[field.id] || ''}
+                  values={values}
+                  error={errors[field.id]}
+                  onChange={(value) => changeValue(field.id, value)}
+                />
+              ))}
+            </div>
+
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={persistDraft}
+                disabled={working}
+              >
+                <Save size={17} aria-hidden="true" />
+                {draftId ? 'Salvar rascunho' : 'Criar rascunho'}
+              </button>
+
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={previewPdf}
+                disabled={working}
+              >
+                <Eye size={17} aria-hidden="true" />
+                Prévia do PDF
+              </button>
+
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={issueDocument}
+                disabled={working}
+              >
+                <CheckCircle2 size={17} aria-hidden="true" />
+                Emitir versão
+              </button>
+            </div>
+
+            {previewUrl && (
+              <section className={styles.preview}>
+                <div className={styles.previewHeader}>
+                  <div>
+                    <div className="section-kicker">Prévia fiel</div>
+                    <h2>PDF que será emitido</h2>
+                  </div>
+                  <span className="badge badge-neutral">
+                    {template.id} • v{template.version}
+                  </span>
+                </div>
+                <iframe
+                  title="Prévia do documento em PDF"
+                  src={previewUrl}
+                  className={styles.previewFrame}
+                />
+              </section>
+            )}
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function DocumentField({ field, value, values, error, onChange }) {
+  const required =
+    field.required
+    || (
+      field.requiredWhen
+      && values[field.requiredWhen.field] === field.requiredWhen.equals
+    );
+
+  const hidden =
+    field.requiredWhen
+    && values[field.requiredWhen.field] !== field.requiredWhen.equals
+    && ['serviceDate', 'startTime', 'endTime', 'followUpSince', 'frequency']
+      .includes(field.id);
+
+  if (hidden) return null;
+
+  const fullWidth = field.type === 'textarea' || field.id === 'purpose';
+
+  return (
+    <div className={'field ' + (fullWidth ? styles.fullWidth : '')}>
+      <label className="field-label" htmlFor={'doc-field-' + field.id}>
+        {field.label}
+        {required ? ' *' : ''}
+      </label>
+
+      {field.type === 'textarea' ? (
+        <textarea
+          id={'doc-field-' + field.id}
+          className="textarea"
+          rows={4}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          aria-invalid={Boolean(error)}
+        />
+      ) : field.type === 'select' ? (
         <select
-          value={docType}
-          onChange={e => setDocType(e.target.value)}
-          style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}
+          id={'doc-field-' + field.id}
+          className="select"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          aria-invalid={Boolean(error)}
         >
-          {Object.entries(DOCUMENT_LABELS).map(([key, label]) => (
-            <option key={key} value={key}>{label}</option>
+          {field.options?.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
           ))}
         </select>
-      </div>
-
-      {/* Campos do formulário */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
-        {allFields.map(field => (
-          <div key={field.id} style={{ gridColumn: field.type === 'textarea' ? '1 / -1' : 'auto' }}>
-            <label style={{ display: 'block', marginBottom: '0.2rem', fontSize: '0.8rem', fontWeight: 500 }}>
-              {field.label} {field.required && <span style={{ color: 'var(--danger)' }}>*</span>}
-            </label>
-            {field.type === 'textarea' ? (
-              <textarea
-                name={field.id}
-                value={formData[field.id] || ''}
-                onChange={handleChange}
-                rows={4}
-                style={{ width: '100%', padding: '0.4rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}
-                required={field.required}
-              />
-            ) : field.type === 'date' ? (
-              <input
-                type="date"
-                name={field.id}
-                value={formData[field.id] || ''}
-                onChange={handleChange}
-                style={{ width: '100%', padding: '0.4rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}
-                required={field.required}
-              />
-            ) : field.type === 'number' ? (
-              <input
-                type="number"
-                name={field.id}
-                value={formData[field.id] || ''}
-                onChange={handleChange}
-                style={{ width: '100%', padding: '0.4rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}
-                required={field.required}
-              />
-            ) : (
-              <input
-                type="text"
-                name={field.id}
-                value={formData[field.id] || ''}
-                onChange={handleChange}
-                placeholder={field.label}
-                style={{ width: '100%', padding: '0.4rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}
-                required={field.required}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Ações */}
-      <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
-        <button
-          onClick={() => handleGenerate(false)}
-          disabled={loading}
-          style={{
-            padding: '0.6rem 1.2rem',
-            background: 'var(--primary)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 'var(--radius-sm)',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            opacity: loading ? 0.7 : 1,
-          }}
-        >
-          <Download size={18} /> {loading ? 'Gerando...' : 'Baixar PDF'}
-        </button>
-        <button
-          onClick={() => handleGenerate(true)}
-          disabled={loading || saving}
-          style={{
-            padding: '0.6rem 1.2rem',
-            background: 'var(--success)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 'var(--radius-sm)',
-            cursor: loading || saving ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            opacity: loading || saving ? 0.7 : 1,
-          }}
-        >
-          <Save size={18} /> {saving ? 'Salvando...' : 'Salvar e Armazenar'}
-        </button>
-        <button
-          onClick={() => setPreview(!preview)}
-          style={{
-            padding: '0.6rem 1.2rem',
-            background: 'var(--bg-tertiary)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border-color)',
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-          }}
-        >
-          <Eye size={18} /> {preview ? 'Ocultar Prévia' : 'Pré-visualizar'}
-        </button>
-      </div>
-
-      {/* Pré-visualização (simples) */}
-      {preview && (
-        <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', maxHeight: '400px', overflow: 'auto' }}>
-          <h4 style={{ margin: '0 0 0.5rem 0' }}>Pré-visualização</h4>
-          <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            {template.baseText.replace(/\{(\w+)\}/g, (match, key) => formData[key] || `[${key}]`)}
-          </div>
-        </div>
+      ) : (
+        <input
+          id={'doc-field-' + field.id}
+          className="input"
+          type={field.type || 'text'}
+          value={value}
+          placeholder={field.placeholder || ''}
+          onChange={(event) => onChange(event.target.value)}
+          aria-invalid={Boolean(error)}
+        />
       )}
+
+      {field.help && <span className={styles.fieldHelp}>{field.help}</span>}
+      {error && <span className={styles.fieldError}>{error}</span>}
+    </div>
+  );
+}
+
+function RestrictedTemplate({ template }) {
+  return (
+    <div className={styles.restricted}>
+      <LockKeyhole size={24} aria-hidden="true" />
+      <div>
+        <h2>Fluxo ainda não habilitado</h2>
+        <p>{template?.restriction}</p>
+        <p>
+          O bloqueio é intencional: esta modalidade só será liberada quando o PsiNote tiver os dados e controles necessários para representar o processo profissional correspondente.
+        </p>
+      </div>
     </div>
   );
 }
