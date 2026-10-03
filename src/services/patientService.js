@@ -271,22 +271,16 @@ export const duplicatePatient = async (patientId, psychologistId) => {
 
 /** @returns {Promise<PatientRecord[]>} */
 export const searchPatients = async (psychologistId, searchTerm) => {
-  const patientsQuery = query(
-    collection(db, COLLECTION),
-    where('psychologistId', '==', psychologistId),
-    where('status', '==', 'active'),
-    orderBy('createdAt', 'desc')
-  );
-
-  const querySnapshot = await getDocs(patientsQuery);
+  const patients = await getPatients(psychologistId, 'active');
   const normalizedTerm = searchTerm.toLowerCase();
 
-  return querySnapshot.docs
-    .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }))
-    .filter((patient) => {
-      const nameMatch = patient.name?.toLowerCase().includes(normalizedTerm);
-      const emailMatch = patient.email?.toLowerCase().includes(normalizedTerm);
-      const phoneMatch = patient.phone?.includes(searchTerm) || patient.whatsapp?.includes(searchTerm);
-      return nameMatch || emailMatch || phoneMatch;
-    });
+  return patients.filter((patient) => {
+    const nameMatch = patient.name?.toLowerCase().includes(normalizedTerm);
+    const emailMatch = patient.email?.toLowerCase().includes(normalizedTerm);
+    const phoneMatch =
+      patient.phone?.includes(searchTerm)
+      || patient.whatsapp?.includes(searchTerm);
+
+    return nameMatch || emailMatch || phoneMatch;
+  });
 };
