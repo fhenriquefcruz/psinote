@@ -1,5 +1,7 @@
+import crypto from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { registerSyntheticUser } from './helpers/auth.js';
+import { VISUAL_BASELINES } from './visual-baselines.js';
 
 const stabilizeVisualEnvironment = async (page) => {
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
@@ -15,7 +17,32 @@ const screenshotOptions = {
   scale: 'css'
 };
 
-test('login shell visual baseline', async ({ page }) => {
+const expectReviewedVisual = async (
+  locator,
+  baselineHash,
+  artifactName,
+  testInfo
+) => {
+  const screenshot = await locator.screenshot(screenshotOptions);
+  const actualHash = crypto
+    .createHash('sha256')
+    .update(screenshot)
+    .digest('hex');
+
+  await testInfo.attach(artifactName + '.png', {
+    body: screenshot,
+    contentType: 'image/png'
+  });
+
+  expect(
+    actualHash,
+    artifactName
+      + ' changed from the reviewed Linux visual baseline. '
+      + 'Inspect the attached PNG before updating the baseline hash.'
+  ).toBe(baselineHash);
+};
+
+test('login shell visual baseline', async ({ page }, testInfo) => {
   await stabilizeVisualEnvironment(page);
   await page.goto('login');
 
@@ -23,13 +50,15 @@ test('login shell visual baseline', async ({ page }) => {
     page.getByRole('heading', { name: 'Entrar no PsiNote' })
   ).toBeVisible();
 
-  await expect(page.locator('#root')).toHaveScreenshot(
-    'login-shell.png',
-    screenshotOptions
+  await expectReviewedVisual(
+    page.locator('#root'),
+    VISUAL_BASELINES.loginShell,
+    'login-shell',
+    testInfo
   );
 });
 
-test('daily command center visual baseline', async ({ page }) => {
+test('daily command center visual baseline', async ({ page }, testInfo) => {
   await stabilizeVisualEnvironment(page);
   await registerSyntheticUser(page);
 
@@ -42,13 +71,15 @@ test('daily command center visual baseline', async ({ page }) => {
     page.getByRole('heading', { name: /Bom dia|Visão do dia/i })
   ).toBeVisible();
 
-  await expect(page.locator('main.page-shell')).toHaveScreenshot(
-    'dashboard-command-center.png',
-    screenshotOptions
+  await expectReviewedVisual(
+    page.locator('main.page-shell'),
+    VISUAL_BASELINES.dashboardCommandCenter,
+    'dashboard-command-center',
+    testInfo
   );
 });
 
-test('documents center visual baseline', async ({ page }) => {
+test('documents center visual baseline', async ({ page }, testInfo) => {
   await stabilizeVisualEnvironment(page);
   await registerSyntheticUser(page);
 
@@ -63,8 +94,10 @@ test('documents center visual baseline', async ({ page }) => {
     page.getByRole('heading', { name: 'Documentos', exact: true })
   ).toBeVisible();
 
-  await expect(page.locator('main.page-shell')).toHaveScreenshot(
-    'documents-center.png',
-    screenshotOptions
+  await expectReviewedVisual(
+    page.locator('main.page-shell'),
+    VISUAL_BASELINES.documentsCenter,
+    'documents-center',
+    testInfo
   );
 });
