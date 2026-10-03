@@ -86,7 +86,18 @@ beforeEach(async () => {
         doc(db, 'sessions/alice-session'),
         clinicalRecord('alice', {
           mainTheme: 'Continuity',
-          status: 'draft'
+          status: 'draft',
+          version: 1,
+          revision: 3
+        })
+      ),
+      setDoc(
+        doc(db, 'sessions/alice-finalized'),
+        clinicalRecord('alice', {
+          mainTheme: 'Finalized content',
+          status: 'finalized',
+          version: 2,
+          revision: 5
         })
       ),
       setDoc(
@@ -250,8 +261,8 @@ describe('Immutable session version records', () => {
     revision: 3,
     reason: 'manual-save',
     snapshot: {
-      mainTheme: 'Prior state',
-      observations: 'Versioned clinical content'
+      mainTheme: 'Continuity',
+      status: 'draft'
     },
     createdAt: '2026-10-03T00:00:00.000Z',
     createdBy: owner,
@@ -299,6 +310,22 @@ describe('Immutable session version records', () => {
     );
   });
 
+  test('version snapshot must match the actual parent state', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertFails(
+      setDoc(
+        doc(alice, 'session_versions/alice-session_forged-snapshot'),
+        versionPayload('alice', {
+          snapshot: {
+            mainTheme: 'Rewritten history',
+            status: 'draft'
+          }
+        })
+      )
+    );
+  });
+
   test('version cannot point to a different patient than its parent session', async () => {
     const alice = testEnv.authenticatedContext('alice').firestore();
 
@@ -334,6 +361,78 @@ describe('Immutable session version records', () => {
         doc(alice, 'session_versions/forged-author'),
         versionPayload('alice', { createdBy: 'bob' })
       )
+    );
+  });
+});
+
+
+describe('Session lifecycle integrity', () => {
+  test('ordinary browser update cannot skip revision sequencing', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertFails(
+      updateDoc(doc(alice, 'sessions/alice-session'), {
+        mainTheme: 'Changed without revision'
+      })
+    );
+  });
+
+  test('draft autosave can keep formal version while incrementing revision', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertSucceeds(
+      updateDoc(doc(alice, 'sessions/alice-session'), {
+        mainTheme: 'Autosaved change',
+        updatedBy: 'alice',
+        version: 1,
+        revision: 4
+      })
+    );
+  });
+
+  test('finalized session cannot be silently edited while remaining finalized', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertFails(
+      updateDoc(doc(alice, 'sessions/alice-finalized'), {
+        mainTheme: 'Silent rewrite',
+        updatedBy: 'alice',
+        version: 2,
+        revision: 6,
+        status: 'finalized'
+      })
+    );
+  });
+
+  test('finalized session may only return to editable draft through a new formal version', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertSucceeds(
+      updateDoc(doc(alice, 'sessions/alice-finalized'), {
+        updatedBy: 'alice',
+        version: 3,
+        revision: 6,
+        status: 'draft'
+      })
+    );
+  });
+
+  test('legacy embedded version history cannot be rewritten', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), 'sessions/alice-session'), {
+        previousVersions: [{ version: 1, mainTheme: 'Legacy state' }]
+      });
+    });
+
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertFails(
+      updateDoc(doc(alice, 'sessions/alice-session'), {
+        previousVersions: [],
+        updatedBy: 'alice',
+        version: 1,
+        revision: 4
+      })
     );
   });
 });
