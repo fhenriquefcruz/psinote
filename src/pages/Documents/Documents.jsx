@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { getDocuments, uploadDocument, deleteDocument, getDocumentAccessUrl } from '../../services/documentService';
+import { getDocuments, uploadDocument, getDocumentAccessUrl } from '../../services/documentService';
 import { getPatients } from '../../services/patientService';
 import { toast } from 'react-toastify';
-import { Upload, File, Trash2, Download, FolderOpen, Search, Plus, FileText } from 'lucide-react';
+import { Upload, File, Download, FolderOpen, Search, Plus, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const CATEGORIES = [
@@ -94,16 +94,6 @@ export default function Documents() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir este documento?')) return;
-    try {
-      await deleteDocument(id, user.uid);
-      toast.success('Documento excluído');
-      await loadData();
-    } catch (error) {
-      toast.error('Erro ao excluir: ' + error.message);
-    }
-  };
 
   const filteredDocs = documents.filter(doc => {
     if (filter === 'patient' && !doc.patientId) return false;
@@ -393,19 +383,6 @@ export default function Documents() {
                     title="Abrir documento"
                   >
                     <Download size={16} aria-hidden="true" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(doc.id)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--text-muted)',
-                      padding: '0.2rem 0.4rem'
-                    }}
-                    title="Excluir"
-                  >
-                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
