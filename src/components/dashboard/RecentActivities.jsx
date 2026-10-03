@@ -63,6 +63,7 @@ const translateAction = (action) => {
     'document.created': 'Documento enviado',
     'document.deleted': 'Documento removido',
     'appointment.created': 'Consulta agendada',
+    'appointment.series_created': 'Série de atendimentos criada',
     'appointment.updated': 'Consulta atualizada',
     'appointment.status_changed': 'Status da consulta alterado',
     'appointment.rescheduled': 'Consulta reagendada',
