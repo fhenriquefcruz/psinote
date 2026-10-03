@@ -43,6 +43,11 @@ type PatientRecord = {
   [key: string]: unknown;
 };
 
+type SessionScales = {
+  mood?: number;
+  [key: string]: unknown;
+};
+
 type SessionRecord = {
   id: string;
   psychologistId?: string;
@@ -63,7 +68,7 @@ type SessionRecord = {
   agreements?: string;
   nextSteps?: string;
   tags?: string[];
-  scales?: Record<string, unknown>;
+  scales?: SessionScales;
   finalizedAt?: TimestampLike;
   reopenedAt?: TimestampLike;
   previousVersions?: unknown[];
