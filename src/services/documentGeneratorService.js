@@ -1,6 +1,5 @@
 // src/services/documentGeneratorService.js
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
 
 // Função para desenhar a logo (linhas retas, compatível com jsPDF)
 const drawLogo = (doc, x, y, size = 10) => {
