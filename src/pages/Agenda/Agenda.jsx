@@ -5,7 +5,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Clock,
   FileText,
   Plus,
   Repeat,
