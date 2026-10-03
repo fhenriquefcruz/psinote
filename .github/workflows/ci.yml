@@ -44,6 +44,9 @@ jobs:
       - name: Security baseline
         run: npm run security:check
 
+      - name: Domain unit tests
+        run: npm run test:unit
+
       - name: Firebase authorization rules
         run: npm run test:rules
 
