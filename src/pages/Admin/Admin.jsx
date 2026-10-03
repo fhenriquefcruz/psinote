@@ -7,7 +7,7 @@ import { db } from '../../firebase/config';
 
 export default function Admin() {
   const { isAdmin } = useAuth();
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState(/** @type {AdminAccountRecord[]} */ ([]));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -119,6 +119,7 @@ export default function Admin() {
   );
 }
 
+/** @type {import('react').CSSProperties} */
 const headerCellStyle = {
   padding: '0.8rem',
   textAlign: 'left',
@@ -127,6 +128,7 @@ const headerCellStyle = {
   whiteSpace: 'nowrap'
 };
 
+/** @type {import('react').CSSProperties} */
 const cellStyle = {
   padding: '0.8rem',
   verticalAlign: 'middle',
