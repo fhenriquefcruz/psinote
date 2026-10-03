@@ -10,8 +10,14 @@ test('public production shell loads without uncaught page errors', async ({ page
 
   expect(response?.ok()).toBeTruthy();
   await expect(page).toHaveTitle(/PsiNote/i);
+
+  const emailInput = page.locator('input[type="email"]').first();
+  const passwordInput = page.locator('input[type="password"]').first();
+
+  await expect(emailInput).toBeVisible();
+  await expect(passwordInput).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: /Entrar no PsiNote|Criar conta|Recuperar acesso/i })
+    page.getByRole('button', { name: /Entrar/i }).first()
   ).toBeVisible();
 
   expect(pageErrors).toEqual([]);
