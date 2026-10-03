@@ -22,6 +22,11 @@ import {
   DOCUMENT_STATUSES,
   safeDocumentFileName
 } from '../domain/documents';
+import {
+  safelySyncSearchEntry,
+  syncDocumentSearchEntry,
+  syncDraftSearchEntry
+} from './searchIndexService';
 
 const COLLECTION = 'documents';
 
@@ -104,6 +109,10 @@ export const uploadDocument = async (
       version: docData.version
     }
   });
+
+  await safelySyncSearchEntry(() =>
+    syncDocumentSearchEntry(docRef.id, psychologistId, docData)
+  );
 
   return { id: docRef.id, ...docData };
 };
@@ -198,6 +207,23 @@ export const issueGeneratedDocument = async ({
       version: documentData.version
     }
   });
+
+  await Promise.all([
+    safelySyncSearchEntry(() =>
+      syncDocumentSearchEntry(
+        documentRef.id,
+        psychologistId,
+        documentData
+      )
+    ),
+    safelySyncSearchEntry(() =>
+      syncDraftSearchEntry(draft.id, psychologistId, {
+        ...draft,
+        status: 'issued',
+        issuedDocumentId: documentRef.id
+      })
+    )
+  ]);
 
   return { id: documentRef.id, ...documentData };
 };

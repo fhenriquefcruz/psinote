@@ -11,6 +11,10 @@ import {
   where
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import {
+  safelySyncSearchEntry,
+  syncDraftSearchEntry
+} from './searchIndexService';
 
 const COLLECTION = 'document_drafts';
 
@@ -63,6 +67,11 @@ export const createDocumentDraft = async ({
   };
 
   await setDoc(draftRef, draftData);
+
+  await safelySyncSearchEntry(() =>
+    syncDraftSearchEntry(draftRef.id, psychologistId, draftData)
+  );
+
   return { id: draftRef.id, ...draftData };
 };
 
@@ -123,6 +132,12 @@ export const markDocumentDraftIssued = async (
     throw new Error('Este rascunho já foi encerrado.');
   }
 
+  const issuedData = {
+    ...draft,
+    status: 'issued',
+    issuedDocumentId
+  };
+
   await updateDoc(doc(db, COLLECTION, draftId), {
     status: 'issued',
     issuedDocumentId,
@@ -130,4 +145,8 @@ export const markDocumentDraftIssued = async (
     updatedAt: serverTimestamp(),
     updatedBy: psychologistId
   });
+
+  await safelySyncSearchEntry(() =>
+    syncDraftSearchEntry(draftId, psychologistId, issuedData)
+  );
 };

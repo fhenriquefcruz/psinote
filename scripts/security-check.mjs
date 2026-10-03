@@ -48,6 +48,25 @@ for (const file of sourceFiles) {
   }
 }
 
+const searchBoundaryFiles = sourceFiles.filter((file) => {
+  const relativePath = path.relative(root, file.path).replace(/\\/g, '/');
+  return [
+    'src/services/searchService.js',
+    'src/services/searchIndexService.js'
+  ].includes(relativePath);
+});
+
+const forbiddenClinicalSearchFields = /\b(mainTheme|clinicalEvolution|evolution|observations|interventions|referrals|agreements|nextSteps|anamnesis|tags)\b/;
+
+for (const file of searchBoundaryFiles) {
+  if (forbiddenClinicalSearchFields.test(file.content)) {
+    violations.push(
+      'clinical narrative field referenced by search boundary: '
+      + path.relative(root, file.path)
+    );
+  }
+}
+
 for (const requiredFile of ['firestore.rules', 'storage.rules', 'firebase.json']) {
   if (!fs.existsSync(path.join(root, requiredFile))) {
     violations.push(`missing security configuration: ${requiredFile}`);

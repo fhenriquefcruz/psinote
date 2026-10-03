@@ -490,6 +490,163 @@ service cloud.firestore {
         );
     }
 
+    function validSearchEntryShape() {
+      return ownsIncomingRecord()
+        && request.resource.data.keys().hasOnly([
+          'psychologistId',
+          'entityType',
+          'entityId',
+          'patientId',
+          'title',
+          'status',
+          'searchable',
+          'date',
+          'sessionNumber',
+          'kind',
+          'templateId',
+          'templateVersion',
+          'version',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.entityType in [
+          'patient',
+          'session',
+          'document',
+          'draft'
+        ]
+        && request.resource.data.entityId is string
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 240
+        && request.resource.data.searchable is bool;
+    }
+
+    function validPatientSearchEntry() {
+      let entityId = request.resource.data.entityId;
+      let sourcePath = /databases/$(database)/documents/patients/$(entityId);
+      let source = get(sourcePath).data;
+
+      return request.resource.data.entityType == 'patient'
+        && exists(sourcePath)
+        && source.psychologistId == request.auth.uid
+        && request.resource.data.patientId == entityId
+        && request.resource.data.title == source.name
+        && request.resource.data.status == source.status
+        && request.resource.data.searchable == (source.status == 'active')
+        && request.resource.data.get('date', null) == null
+        && request.resource.data.get('sessionNumber', null) == null
+        && request.resource.data.get('kind', null) == null
+        && request.resource.data.get('templateId', null) == null
+        && request.resource.data.get('templateVersion', null) == null
+        && request.resource.data.get('version', null) == null;
+    }
+
+    function validSessionSearchEntry() {
+      let entityId = request.resource.data.entityId;
+      let sourcePath = /databases/$(database)/documents/sessions/$(entityId);
+      let source = get(sourcePath).data;
+
+      return request.resource.data.entityType == 'session'
+        && exists(sourcePath)
+        && source.psychologistId == request.auth.uid
+        && request.resource.data.patientId == source.patientId
+        && request.resource.data.title == source.patientName
+        && request.resource.data.status == source.status
+        && request.resource.data.searchable == (source.status != 'archived')
+        && request.resource.data.get('date', null)
+          == source.get('date', null)
+        && request.resource.data.get('sessionNumber', null)
+          == source.get('sessionNumber', null)
+        && request.resource.data.get('version', null)
+          == source.get('version', 1)
+        && request.resource.data.get('kind', null) == null
+        && request.resource.data.get('templateId', null) == null
+        && request.resource.data.get('templateVersion', null) == null;
+    }
+
+    function validDocumentSearchEntry() {
+      let entityId = request.resource.data.entityId;
+      let sourcePath = /databases/$(database)/documents/documents/$(entityId);
+      let source = get(sourcePath).data;
+
+      return request.resource.data.entityType == 'document'
+        && exists(sourcePath)
+        && source.psychologistId == request.auth.uid
+        && request.resource.data.get('patientId', null)
+          == source.get('patientId', null)
+        && request.resource.data.title == source.name
+        && request.resource.data.status == source.get('status', 'stored')
+        && request.resource.data.searchable == true
+        && request.resource.data.get('date', null) == null
+        && request.resource.data.get('sessionNumber', null) == null
+        && request.resource.data.get('kind', null)
+          == source.get('kind', 'attachment')
+        && request.resource.data.get('templateId', null)
+          == source.get('templateId', null)
+        && request.resource.data.get('templateVersion', null)
+          == source.get('templateVersion', null)
+        && request.resource.data.get('version', null)
+          == source.get('version', 1);
+    }
+
+    function validDraftSearchEntry() {
+      let entityId = request.resource.data.entityId;
+      let sourcePath = /databases/$(database)/documents/document_drafts/$(entityId);
+      let source = get(sourcePath).data;
+
+      return request.resource.data.entityType == 'draft'
+        && exists(sourcePath)
+        && source.psychologistId == request.auth.uid
+        && request.resource.data.get('patientId', null)
+          == source.get('patientId', null)
+        && request.resource.data.title == source.patientName
+        && request.resource.data.status == source.status
+        && request.resource.data.searchable == (source.status == 'draft')
+        && request.resource.data.get('date', null) == null
+        && request.resource.data.get('sessionNumber', null) == null
+        && request.resource.data.get('kind', null) == 'generated'
+        && request.resource.data.get('templateId', null)
+          == source.templateId
+        && request.resource.data.get('templateVersion', null)
+          == source.templateVersion
+        && request.resource.data.get('version', null)
+          == source.issueVersion;
+    }
+
+    function validSearchEntry() {
+      let entityType = request.resource.data.entityType;
+
+      return validSearchEntryShape()
+        && (
+          (
+            entityType == 'patient'
+            && validPatientSearchEntry()
+          )
+          || (
+            entityType == 'session'
+            && validSessionSearchEntry()
+          )
+          || (
+            entityType == 'document'
+            && validDocumentSearchEntry()
+          )
+          || (
+            entityType == 'draft'
+            && validDraftSearchEntry()
+          )
+        );
+    }
+
+    function validSearchEntryUpdate() {
+      return validSearchEntry()
+        && resource.data.psychologistId == request.auth.uid
+        && request.resource.data.psychologistId
+          == resource.data.psychologistId
+        && request.resource.data.entityType == resource.data.entityType
+        && request.resource.data.entityId == resource.data.entityId;
+    }
+
     function safeActivityPayload() {
       return request.resource.data.keys().hasOnly([
           'psychologistId',
@@ -575,6 +732,13 @@ service cloud.firestore {
       allow create: if validDocumentCreate(recordId);
       allow read: if ownsExistingRecord();
       allow update, delete: if false;
+    }
+
+    match /search_entries/{recordId} {
+      allow create: if validSearchEntry();
+      allow read: if ownsExistingRecord();
+      allow update: if validSearchEntryUpdate();
+      allow delete: if false;
     }
 
     match /activities/{recordId} {

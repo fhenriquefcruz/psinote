@@ -1,178 +1,362 @@
-import { useState, useEffect, useRef } from 'react';
-import { Search, X, Users, FileText, Calendar } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  CalendarDays,
+  FileClock,
+  FileText,
+  Search,
+  Sparkles,
+  Stethoscope,
+  UserRound,
+  X
+} from 'lucide-react';
+import { toast } from 'react-toastify';
 import { useAuth } from '../../../hooks/useAuth';
 import { globalSearch } from '../../../services/searchService';
-import { getDocumentAccessUrl } from '../../../services/documentService';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import {
+  getDocumentAccessUrl,
+  getDocumentById
+} from '../../../services/documentService';
+import {
+  SAFE_SEARCH_COMMANDS,
+  commandMatches,
+  normalizeSearchText
+} from '../../../domain/search';
+import styles from './SearchBar.module.css';
+
+const EMPTY_RESULTS = {
+  patients: [],
+  sessions: [],
+  documents: [],
+  drafts: []
+};
+
+const GROUPS = [
+  ['patients', 'Pacientes'],
+  ['sessions', 'Sessões'],
+  ['drafts', 'Rascunhos'],
+  ['documents', 'Documentos']
+];
+
+const ICONS = {
+  command: Sparkles,
+  patient: UserRound,
+  session: Stethoscope,
+  draft: FileClock,
+  document: FileText
+};
 
 export default function SearchBar() {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState({ patients: [], sessions: [], documents: [] });
-  const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
-  const wrapperRef = useRef(null);
+  const inputRef = useRef(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const [open, setOpen] = useState(false);
+  const [queryValue, setQueryValue] = useState('');
+  const [results, setResults] = useState(EMPTY_RESULTS);
+  const [loading, setLoading] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
 
-  useEffect(() => {
-    const search = async () => {
-      if (query.length < 2) {
-        setResults({ patients: [], sessions: [], documents: [] });
-        return;
-      }
-      setLoading(true);
-      try {
-        const data = await globalSearch(user.uid, query);
-        setResults(data);
-        setIsOpen(true);
-      } catch (error) {
-        console.error('Erro na busca:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    const debounce = setTimeout(search, 300);
-    return () => clearTimeout(debounce);
-  }, [query, user]);
+  const normalizedQuery = normalizeSearchText(queryValue);
 
-  const handleSelect = (type, id) => {
-    setIsOpen(false);
-    setQuery('');
-    if (type === 'patient') navigate(`/patients/${id}`);
-    else if (type === 'session') navigate(`/sessions/${id}`);
+  const commands = useMemo(
+    () =>
+      SAFE_SEARCH_COMMANDS
+        .filter((command) => commandMatches(queryValue, command))
+        .map((command) => ({ ...command, type: 'command' })),
+    [queryValue]
+  );
+
+  const entries = useMemo(
+    () => [
+      ...commands,
+      ...results.patients,
+      ...results.sessions,
+      ...results.drafts,
+      ...results.documents
+    ],
+    [commands, results]
+  );
+
+  const close = () => {
+    setOpen(false);
+    setQueryValue('');
+    setResults(EMPTY_RESULTS);
+    setActiveIndex(0);
   };
 
-  const handleOpenDocument = async (documentItem) => {
-    try {
-      const { url, revokeAfterUse } = await getDocumentAccessUrl(documentItem, user.uid);
-      window.open(url, '_blank', 'noopener,noreferrer');
-      if (revokeAfterUse) {
-        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  const show = () => {
+    setOpen(true);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  useEffect(() => {
+    const keyboardShortcut = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        show();
       }
-      setIsOpen(false);
-      setQuery('');
-    } catch {
-      toast.error('Não foi possível abrir o documento.');
+
+      if (event.key === 'Escape' && open) {
+        event.preventDefault();
+        close();
+      }
+    };
+
+    window.addEventListener('keydown', keyboardShortcut);
+    return () => window.removeEventListener('keydown', keyboardShortcut);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !user || normalizedQuery.length < 2) {
+      setResults(EMPTY_RESULTS);
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+    setLoading(true);
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const data = await globalSearch(user.uid, normalizedQuery);
+        if (active) setResults(data);
+      } catch {
+        if (active) {
+          setResults(EMPTY_RESULTS);
+          toast.error('Não foi possível concluir a busca.');
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }, 180);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [normalizedQuery, open, user]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [normalizedQuery, open]);
+
+  const selectEntry = async (entry) => {
+    if (!entry) return;
+
+    if (entry.action === 'open-document') {
+      try {
+        const documentItem = await getDocumentById(entry.id, user.uid);
+        if (!documentItem) {
+          toast.error('Documento não encontrado.');
+          return;
+        }
+
+        const { url, revokeAfterUse } = await getDocumentAccessUrl(
+          documentItem,
+          user.uid
+        );
+
+        window.open(url, '_blank', 'noopener,noreferrer');
+        if (revokeAfterUse) {
+          window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        }
+        close();
+      } catch (error) {
+        toast.error('Não foi possível abrir o documento: ' + error.message);
+      }
+      return;
+    }
+
+    if (entry.route) {
+      navigate(entry.route);
+      close();
     }
   };
 
-  const totalResults = results.patients.length + results.sessions.length + results.documents.length;
+  const onInputKeyDown = (event) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveIndex((current) =>
+        entries.length ? (current + 1) % entries.length : 0
+      );
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveIndex((current) =>
+        entries.length
+          ? (current - 1 + entries.length) % entries.length
+          : 0
+      );
+    }
+
+    if (event.key === 'Enter' && entries.length) {
+      event.preventDefault();
+      selectEntry(entries[activeIndex]);
+    }
+  };
+
+  let runningIndex = 0;
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        background: 'var(--bg-tertiary)',
-        borderRadius: 'var(--radius-sm)',
-        padding: '0.3rem 0.6rem',
-        border: '1px solid transparent',
-        transition: 'var(--transition)'
-      }}>
-        <Search size={18} style={{ color: 'var(--text-muted)' }} />
-        <input
-          type="text"
-          placeholder="Buscar pacientes, sessões..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => query.length >= 2 && setIsOpen(true)}
-          style={{
-            border: 'none',
-            background: 'transparent',
-            padding: '0.4rem 0.6rem',
-            outline: 'none',
-            flex: 1,
-            fontSize: '0.875rem',
-            color: 'var(--text-primary)',
-            width: '100%'
+    <>
+      <button
+        type="button"
+        className={styles.trigger}
+        onClick={show}
+        aria-label="Abrir busca e comandos"
+      >
+        <Search size={17} aria-hidden="true" />
+        <span>Buscar ou executar...</span>
+        <kbd>Ctrl K</kbd>
+      </button>
+
+      {open && (
+        <div
+          className={styles.backdrop}
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) close();
           }}
-        />
-        {query && (
-          <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-            <X size={16} />
-          </button>
-        )}
-      </div>
-      {isOpen && (totalResults > 0 || loading) && (
-        <div style={{
-          position: 'absolute',
-          top: 'calc(100% + 4px)',
-          left: 0,
-          right: 0,
-          background: 'var(--bg-primary)',
-          border: '1px solid var(--border-color)',
-          borderRadius: 'var(--radius)',
-          boxShadow: 'var(--shadow-lg)',
-          zIndex: 50,
-          maxHeight: '400px',
-          overflowY: 'auto',
-          padding: '0.5rem 0'
-        }}>
-          {loading ? (
-            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>Buscando...</div>
-          ) : (
-            <>
-              {results.patients.length > 0 && (
+        >
+          <section
+            className={styles.palette}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="command-palette-title"
+          >
+            <div className={styles.searchBox}>
+              <Search size={19} aria-hidden="true" />
+              <input
+                ref={inputRef}
+                value={queryValue}
+                onChange={(event) => setQueryValue(event.target.value)}
+                onKeyDown={onInputKeyDown}
+                placeholder="Paciente, sessão, documento ou comando..."
+                aria-label="Buscar no PsiNote"
+                autoComplete="off"
+              />
+              {queryValue && (
+                <button
+                  type="button"
+                  onClick={() => setQueryValue('')}
+                  aria-label="Limpar busca"
+                >
+                  <X size={17} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            <div className={styles.paletteBody}>
+              <div className={styles.paletteIntro}>
                 <div>
-                  <div style={{ padding: '0.3rem 0.8rem', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
-                    <Users size={12} style={{ display: 'inline', marginRight: '0.3rem' }} /> Pacientes
-                  </div>
-                  {results.patients.map(p => (
-                    <div key={p.id} onClick={() => handleSelect('patient', p.id)} style={{ padding: '0.4rem 0.8rem', cursor: 'pointer', transition: 'var(--transition)' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                      <span style={{ color: 'var(--text-primary)' }}>{p.name}</span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>{p.email || p.phone}</span>
-                    </div>
-                  ))}
+                  <Sparkles size={17} aria-hidden="true" />
+                  <strong id="command-palette-title">Busca segura</strong>
+                </div>
+                <span>
+                  Busca por metadados; conteúdo clínico de sessões não é pesquisado.
+                </span>
+              </div>
+
+              {loading && (
+                <div className={styles.loading} role="status">
+                  Buscando...
                 </div>
               )}
-              {results.sessions.length > 0 && (
-                <div>
-                  <div style={{ padding: '0.3rem 0.8rem', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', marginTop: '0.3rem' }}>
-                    <Calendar size={12} style={{ display: 'inline', marginRight: '0.3rem' }} /> Sessões
-                  </div>
-                  {results.sessions.map(s => (
-                    <div key={s.id} onClick={() => handleSelect('session', s.id)} style={{ padding: '0.4rem 0.8rem', cursor: 'pointer', transition: 'var(--transition)' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                      <span style={{ color: 'var(--text-primary)' }}>{s.mainTheme || 'Sessão'}</span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
-                        {s.date?.toDate?.()?.toLocaleDateString('pt-BR') || ''}
-                      </span>
-                    </div>
-                  ))}
+
+              {commands.length > 0 && (
+                <ResultGroup
+                  title="Comandos"
+                  items={commands}
+                  activeIndex={activeIndex}
+                  startIndex={runningIndex}
+                  onSelect={selectEntry}
+                  onActive={setActiveIndex}
+                />
+              )}
+              {(() => {
+                runningIndex += commands.length;
+                return null;
+              })()}
+
+              {GROUPS.map(([key, label]) => {
+                const items = results[key];
+                if (!items.length) return null;
+
+                const start = runningIndex;
+                runningIndex += items.length;
+
+                return (
+                  <ResultGroup
+                    key={key}
+                    title={label}
+                    items={items}
+                    activeIndex={activeIndex}
+                    startIndex={start}
+                    onSelect={selectEntry}
+                    onActive={setActiveIndex}
+                  />
+                );
+              })}
+
+              {!loading && entries.length === 0 && normalizedQuery.length >= 2 && (
+                <div className={styles.empty}>
+                  Nenhum resultado encontrado nos metadados disponíveis.
                 </div>
               )}
-              {results.documents.length > 0 && (
-                <div>
-                  <div style={{ padding: '0.3rem 0.8rem', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', marginTop: '0.3rem' }}>
-                    <FileText size={12} style={{ display: 'inline', marginRight: '0.3rem' }} /> Documentos
-                  </div>
-                  {results.documents.map(d => (
-                    <div key={d.id} onClick={() => handleOpenDocument(d)} style={{ padding: '0.4rem 0.8rem', cursor: 'pointer', transition: 'var(--transition)' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                      <span style={{ color: 'var(--text-primary)' }}>{d.name}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+            </div>
+
+            <footer className={styles.footer}>
+              <span>↑↓ navegar</span>
+              <span>Enter abrir</span>
+              <span>Esc fechar</span>
+            </footer>
+          </section>
         </div>
       )}
-    </div>
+    </>
+  );
+}
+
+function ResultGroup({
+  title,
+  items,
+  activeIndex,
+  startIndex,
+  onSelect,
+  onActive
+}) {
+  return (
+    <section className={styles.group}>
+      <h3>{title}</h3>
+      <div className={styles.groupItems}>
+        {items.map((item, offset) => {
+          const index = startIndex + offset;
+          const Icon = ICONS[item.type] || CalendarDays;
+          const active = index === activeIndex;
+
+          return (
+            <button
+              key={item.type + '-' + item.id}
+              type="button"
+              className={active ? styles.resultActive : styles.result}
+              onMouseEnter={() => onActive(index)}
+              onFocus={() => onActive(index)}
+              onClick={() => onSelect(item)}
+            >
+              <span className={styles.resultIcon}>
+                <Icon size={17} aria-hidden="true" />
+              </span>
+              <span className={styles.resultText}>
+                <strong>{item.label || item.title}</strong>
+                <small>{item.description || item.subtitle}</small>
+              </span>
+              {active && <span className={styles.enterHint}>↵</span>}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
