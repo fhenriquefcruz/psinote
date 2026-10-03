@@ -239,3 +239,101 @@ describe('Audit activity rules', () => {
     );
   });
 });
+
+
+describe('Immutable session version records', () => {
+  const versionPayload = (owner = 'alice', overrides = {}) => ({
+    psychologistId: owner,
+    patientId: 'patient-1',
+    sessionId: 'alice-session',
+    version: 1,
+    revision: 3,
+    reason: 'manual-save',
+    snapshot: {
+      mainTheme: 'Prior state',
+      observations: 'Versioned clinical content'
+    },
+    createdAt: '2026-10-03T00:00:00.000Z',
+    createdBy: owner,
+    ...overrides
+  });
+
+  test('owner can append a version linked to an owned session', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertSucceeds(
+      setDoc(
+        doc(alice, 'session_versions/alice-session_v1'),
+        versionPayload()
+      )
+    );
+
+    await assertSucceeds(
+      getDoc(doc(alice, 'session_versions/alice-session_v1'))
+    );
+  });
+
+  test('another tenant cannot append or read the version', async () => {
+    const bob = testEnv.authenticatedContext('bob').firestore();
+
+    await assertFails(
+      setDoc(
+        doc(bob, 'session_versions/forged'),
+        versionPayload('bob', {
+          patientId: 'patient-1',
+          sessionId: 'alice-session',
+          createdBy: 'bob'
+        })
+      )
+    );
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'session_versions/alice-session_v1'),
+        versionPayload()
+      );
+    });
+
+    await assertFails(
+      getDoc(doc(bob, 'session_versions/alice-session_v1'))
+    );
+  });
+
+  test('version cannot point to a different patient than its parent session', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertFails(
+      setDoc(
+        doc(alice, 'session_versions/alice-session_wrong-patient'),
+        versionPayload('alice', { patientId: 'patient-2' })
+      )
+    );
+  });
+
+  test('version records are immutable after creation', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+    const ref = doc(alice, 'session_versions/alice-session_v1');
+
+    await assertSucceeds(setDoc(ref, versionPayload()));
+    await assertFails(updateDoc(ref, { reason: 'finalize' }));
+    await assertFails(deleteDoc(ref));
+  });
+
+  test('unsupported reason and forged author are rejected', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertFails(
+      setDoc(
+        doc(alice, 'session_versions/bad-reason'),
+        versionPayload('alice', { reason: 'silent-rewrite' })
+      )
+    );
+
+    await assertFails(
+      setDoc(
+        doc(alice, 'session_versions/forged-author'),
+        versionPayload('alice', { createdBy: 'bob' })
+      )
+    );
+  });
+});
