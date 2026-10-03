@@ -59,6 +59,7 @@ export function AuthProvider({ children }) {
             phone: '',
             photoURL: firebaseUser.photoURL || '',
             role: 'user',
+            blocked: false,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
           };
