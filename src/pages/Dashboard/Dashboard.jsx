@@ -15,29 +15,11 @@ import { getPatients } from '../../services/patientService';
 import { getSessions } from '../../services/sessionService';
 import { getRecentActivities } from '../../services/activityService';
 import RecentActivities from '../../components/dashboard/RecentActivities';
+import { parseDateValue, startOfLocalDay, endOfLocalDay } from '../../utils/date';
 import styles from './Dashboard.module.css';
 
-const toDate = (value) => {
-  if (!value) return null;
-  if (typeof value?.toDate === 'function') return value.toDate();
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const startOfDay = (date) => {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
-  return result;
-};
-
-const endOfDay = (date) => {
-  const result = new Date(date);
-  result.setHours(23, 59, 59, 999);
-  return result;
-};
-
 const appointmentMoment = (appointment) => {
-  const date = toDate(appointment.date);
+  const date = parseDateValue(appointment.date);
   if (!date) return null;
 
   const result = new Date(date);
@@ -91,14 +73,14 @@ export default function Dashboard() {
   }, [user]);
 
   const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
+  const todayStart = startOfLocalDay(now);
+  const todayEnd = endOfLocalDay(now);
 
   const todayAppointments = useMemo(
     () =>
       appointments
         .filter((appointment) => {
-          const date = toDate(appointment.date);
+          const date = parseDateValue(appointment.date);
           return date && date >= todayStart && date <= todayEnd;
         })
         .sort((a, b) => (appointmentMoment(a)?.getTime() || 0) - (appointmentMoment(b)?.getTime() || 0)),
@@ -129,7 +111,7 @@ export default function Dashboard() {
 
   const pendingRecords = appointments
     .filter((appointment) => {
-      const date = toDate(appointment.date);
+      const date = parseDateValue(appointment.date);
       return (
         appointment.status === 'done' &&
         !appointment.recordCompletedAt &&
@@ -137,7 +119,7 @@ export default function Dashboard() {
         date >= thirtyDaysAgo
       );
     })
-    .sort((a, b) => (toDate(b.date)?.getTime() || 0) - (toDate(a.date)?.getTime() || 0));
+    .sort((a, b) => (parseDateValue(b.date)?.getTime() || 0) - (parseDateValue(a.date)?.getTime() || 0));
 
   const draftSessions = sessions.filter((session) => session.status === 'draft');
   const recentFinalized = sessions.filter((session) => session.status === 'finalized').slice(0, 4);
@@ -278,7 +260,7 @@ export default function Dashboard() {
                       {appointment.patientName || patientNames[appointment.patientId] || 'Paciente'}
                     </strong>
                     <span>
-                      {toDate(appointment.date)?.toLocaleDateString('pt-BR') || 'Data não informada'}
+                      {parseDateValue(appointment.date)?.toLocaleDateString('pt-BR') || 'Data não informada'}
                     </span>
                   </div>
                   <Link
@@ -348,7 +330,7 @@ export default function Dashboard() {
                     <span>{session.mainTheme || 'Registro finalizado'}</span>
                   </div>
                   <span className={styles.recentDate}>
-                    {toDate(session.date)?.toLocaleDateString('pt-BR') || ''}
+                    {parseDateValue(session.date)?.toLocaleDateString('pt-BR') || ''}
                   </span>
                 </Link>
               ))
