@@ -26,7 +26,6 @@ const actionMap = {
   'Consulta reagendada': { icon: Calendar, color: '#F59E0B' },
   'Consulta confirmada': { icon: Calendar, color: '#4F46E5' },
   'Consulta faltou': { icon: Calendar, color: '#6B7280' },
-  'Consulta agendada': { icon: Calendar, color: '#10B981' },
 };
 
 // Mapeia ações em inglês para português (caso venham do backend)
@@ -59,13 +58,16 @@ const translateAction = (action) => {
     'session.archived': 'Sessão arquivada',
     'session.restored': 'Sessão restaurada',
     'session.duplicated': 'Sessão duplicada',
+    'session.finalized': 'Sessão finalizada',
+    'session.reopened': 'Sessão reaberta',
     'document.created': 'Documento enviado',
     'document.deleted': 'Documento removido',
     'appointment.created': 'Consulta agendada',
     'appointment.updated': 'Consulta atualizada',
     'appointment.status_changed': 'Status da consulta alterado',
     'appointment.rescheduled': 'Consulta reagendada',
-    'appointment.deleted': 'Consulta removida'
+    'appointment.deleted': 'Consulta removida',
+    'appointment.record_completed': 'Registro da consulta concluído'
   };
   return translations[action] || action;
 };

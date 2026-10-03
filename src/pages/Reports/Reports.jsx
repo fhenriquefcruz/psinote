@@ -4,7 +4,7 @@ import { getPatients, getPatientById } from '../../services/patientService';
 import { getSessionsByPatient } from '../../services/sessionService';
 import { toast } from 'react-toastify';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import { autoTable } from 'jspdf-autotable';
 import { FileText, Download } from 'lucide-react';
 
 export default function Reports() {
@@ -171,7 +171,7 @@ export default function Reports() {
         ];
       });
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [['Data', 'Tema', 'Humor']],
         body: tableData,
@@ -277,7 +277,7 @@ export default function Reports() {
       ['Total de sessões realizadas', totalSessions]
     ];
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: y,
       head: [['Métrica', 'Valor']],
       body: stats,

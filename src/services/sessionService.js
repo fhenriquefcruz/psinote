@@ -8,6 +8,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -35,8 +36,9 @@ export const createSession = async (psychologistId, data) => {
   const sessionData = {
     ...data,
     psychologistId,
-    status: 'scheduled',
+    status: data.status || 'draft',
     version: 1,
+    revision: 1,
     previousVersions: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -45,6 +47,7 @@ export const createSession = async (psychologistId, data) => {
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), sessionData);
+
   await addActivity({
     psychologistId,
     user: psychologistId,
@@ -55,6 +58,21 @@ export const createSession = async (psychologistId, data) => {
   });
 
   return { id: docRef.id, ...sessionData };
+};
+
+export const getSessions = async (psychologistId, limitCount = 50) => {
+  const sessionsQuery = query(
+    collection(db, COLLECTION),
+    where('psychologistId', '==', psychologistId),
+    orderBy('date', 'desc'),
+    limit(limitCount)
+  );
+
+  const querySnapshot = await getDocs(sessionsQuery);
+  return querySnapshot.docs.map((snapshot) => ({
+    id: snapshot.id,
+    ...snapshot.data()
+  }));
 };
 
 export const getSessionsByPatient = async (patientId, psychologistId) => {
@@ -109,26 +127,72 @@ export const updateSession = async (
     psychologistId,
     updatedAt: serverTimestamp(),
     updatedBy: psychologistId,
-    version: (currentData.version || 0) + 1,
+    version: saveVersion ? (currentData.version || 1) + 1 : (currentData.version || 1),
+    revision: (currentData.revision || currentData.version || 1) + 1,
     previousVersions
   };
 
   await updateDoc(sessionRef, updateData);
 
-  await addActivity({
-    psychologistId,
-    user: psychologistId,
-    action: 'session.updated',
-    target: 'session',
-    targetId: sessionId,
-    details: { version: updateData.version }
-  });
+  if (saveVersion) {
+    await addActivity({
+      psychologistId,
+      user: psychologistId,
+      action: 'session.updated',
+      target: 'session',
+      targetId: sessionId,
+      details: { version: updateData.version }
+    });
+  }
 
   return { id: sessionId, ...updateData };
 };
 
 export const autoSaveSession = async (sessionId, psychologistId, data) =>
   updateSession(sessionId, psychologistId, data, false);
+
+export const finalizeSession = async (sessionId, psychologistId, data) => {
+  const result = await updateSession(
+    sessionId,
+    psychologistId,
+    {
+      ...data,
+      status: 'finalized',
+      finalizedAt: serverTimestamp()
+    },
+    true
+  );
+
+  await addActivity({
+    psychologistId,
+    user: psychologistId,
+    action: 'session.finalized',
+    target: 'session',
+    targetId: sessionId,
+    details: { version: result.version }
+  });
+
+  return result;
+};
+
+export const reopenSession = async (sessionId, psychologistId) => {
+  const { sessionRef } = await getOwnedSessionSnapshot(sessionId, psychologistId);
+
+  await updateDoc(sessionRef, {
+    status: 'draft',
+    reopenedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    updatedBy: psychologistId
+  });
+
+  await addActivity({
+    psychologistId,
+    user: psychologistId,
+    action: 'session.reopened',
+    target: 'session',
+    targetId: sessionId
+  });
+};
 
 export const duplicateSession = async (sessionId, psychologistId) => {
   const original = await getSessionById(sessionId, psychologistId);
@@ -140,6 +204,8 @@ export const duplicateSession = async (sessionId, psychologistId) => {
     updatedAt,
     createdBy,
     updatedBy,
+    finalizedAt,
+    reopenedAt,
     previousVersions,
     ...rest
   } = original;
@@ -149,8 +215,9 @@ export const duplicateSession = async (sessionId, psychologistId) => {
     psychologistId,
     sessionNumber: (rest.sessionNumber || 0) + 1,
     date: new Date(),
-    status: 'scheduled',
+    status: 'draft',
     version: 1,
+    revision: 1,
     previousVersions: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -159,6 +226,7 @@ export const duplicateSession = async (sessionId, psychologistId) => {
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), newData);
+
   await addActivity({
     psychologistId,
     user: psychologistId,
@@ -193,7 +261,7 @@ export const restoreSession = async (sessionId, psychologistId) => {
   const { sessionRef } = await getOwnedSessionSnapshot(sessionId, psychologistId);
 
   await updateDoc(sessionRef, {
-    status: 'scheduled',
+    status: 'draft',
     updatedAt: serverTimestamp(),
     updatedBy: psychologistId
   });

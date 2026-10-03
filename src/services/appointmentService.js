@@ -78,6 +78,21 @@ export const getAppointments = async (psychologistId, startDate, endDate) => {
   }));
 };
 
+export const getAppointmentsByPatient = async (psychologistId, patientId) => {
+  const appointmentsQuery = query(
+    collection(db, COLLECTION),
+    where('psychologistId', '==', psychologistId),
+    where('patientId', '==', patientId),
+    orderBy('date', 'desc')
+  );
+
+  const querySnapshot = await getDocs(appointmentsQuery);
+  return querySnapshot.docs.map((snapshot) => ({
+    id: snapshot.id,
+    ...snapshot.data()
+  }));
+};
+
 export const updateAppointmentStatus = async (
   appointmentId,
   psychologistId,
@@ -183,4 +198,33 @@ export const deleteAppointment = async (appointmentId, psychologistId) => {
   });
 
   return true;
+};
+
+
+export const markAppointmentRecordCompleted = async (
+  appointmentId,
+  psychologistId,
+  sessionId
+) => {
+  if (!appointmentId) return;
+
+  const { appointmentRef } = await getOwnedAppointmentSnapshot(
+    appointmentId,
+    psychologistId
+  );
+
+  await updateDoc(appointmentRef, {
+    recordCompletedAt: serverTimestamp(),
+    sessionId,
+    updatedAt: serverTimestamp(),
+    updatedBy: psychologistId
+  });
+
+  await addActivity({
+    psychologistId,
+    user: psychologistId,
+    action: 'appointment.record_completed',
+    target: 'appointment',
+    targetId: appointmentId
+  });
 };

@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   baseline:
     runs-on: ubuntu-latest
@@ -22,11 +26,14 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
         run: npm install
+
+      - name: Dependency security audit
+        run: npm audit --audit-level=moderate
 
       - name: Security baseline
         run: npm run security:check
