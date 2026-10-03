@@ -23,22 +23,11 @@ import {
   getDocumentAccessUrl
 } from '../../services/documentService';
 import { getAppointmentsByPatient } from '../../services/appointmentService';
+import { parseDateValue, formatDatePtBr } from '../../utils/date';
 import styles from './PatientProfile.module.css';
 
-const toDate = (value) => {
-  if (!value) return null;
-  if (typeof value?.toDate === 'function') return value.toDate();
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const formatDate = (value, fallback = 'Não informado') => {
-  const date = toDate(value);
-  return date ? date.toLocaleDateString('pt-BR') : fallback;
-};
-
 const formatFollowUpDuration = (createdAt) => {
-  const start = toDate(createdAt);
+  const start = parseDateValue(createdAt);
   if (!start) return 'Não calculado';
 
   const days = Math.max(
@@ -129,14 +118,14 @@ export default function PatientProfile() {
 
     return [...appointments]
       .filter((appointment) => {
-        const date = toDate(appointment.date);
+        const date = parseDateValue(appointment.date);
         return (
           date &&
           date >= now &&
           ['scheduled', 'confirmed'].includes(appointment.status)
         );
       })
-      .sort((a, b) => toDate(a.date) - toDate(b.date))[0] || null;
+      .sort((a, b) => parseDateValue(a.date) - parseDateValue(b.date))[0] || null;
   }, [appointments]);
 
   const timeline = useMemo(() => {
@@ -147,7 +136,7 @@ export default function PatientProfile() {
     if (patient.createdAt) {
       items.push({
         id: 'patient-created',
-        date: toDate(patient.createdAt),
+        date: parseDateValue(patient.createdAt),
         type: 'Entrada',
         title: 'Cadastro iniciado',
         detail: 'Início do acompanhamento no PsiNote.'
@@ -157,7 +146,7 @@ export default function PatientProfile() {
     sessions.forEach((session) => {
       items.push({
         id: 'session-' + session.id,
-        date: toDate(session.date) || toDate(session.updatedAt),
+        date: parseDateValue(session.date) || parseDateValue(session.updatedAt),
         type: 'Sessão',
         title:
           session.status === 'finalized'
@@ -171,7 +160,7 @@ export default function PatientProfile() {
     documents.forEach((document) => {
       items.push({
         id: 'document-' + document.id,
-        date: toDate(document.uploadedAt) || toDate(document.createdAt),
+        date: parseDateValue(document.uploadedAt) || parseDateValue(document.createdAt),
         type: 'Documento',
         title: document.name || 'Documento',
         detail: 'Documento vinculado ao paciente.',
@@ -182,7 +171,7 @@ export default function PatientProfile() {
     appointments.forEach((appointment) => {
       items.push({
         id: 'appointment-' + appointment.id,
-        date: toDate(appointment.date),
+        date: parseDateValue(appointment.date),
         type: 'Agenda',
         title: 'Atendimento ' + (appointmentStatusLabel[appointment.status] || appointment.status),
         detail: appointment.time ? 'Horário: ' + appointment.time : 'Horário não informado.'
@@ -192,7 +181,7 @@ export default function PatientProfile() {
     if (patient.archivedAt) {
       items.push({
         id: 'patient-archived',
-        date: toDate(patient.archivedAt),
+        date: parseDateValue(patient.archivedAt),
         type: 'Arquivamento',
         title: 'Paciente arquivado',
         detail: 'Registro preservado para histórico e retenção.'
@@ -414,14 +403,14 @@ function Overview({
           <Metric
             icon={Calendar}
             label="Última sessão"
-            value={lastSession ? formatDate(lastSession.date) : 'Sem registro'}
+            value={lastSession ? formatDatePtBr(lastSession.date) : 'Sem registro'}
           />
           <Metric
             icon={Calendar}
             label="Próximo atendimento"
             value={
               nextAppointment
-                ? formatDate(nextAppointment.date) +
+                ? formatDatePtBr(nextAppointment.date) +
                   (nextAppointment.time ? ' às ' + nextAppointment.time : '')
                 : 'Não agendado'
             }
@@ -462,7 +451,7 @@ function Overview({
                 to={'/sessions/' + session.id}
               >
                 <div>
-                  <strong>{formatDate(session.date)}</strong>
+                  <strong>{formatDatePtBr(session.date)}</strong>
                   <span>{session.mainTheme || 'Sem tema informado'}</span>
                 </div>
                 <ChevronRight size={17} aria-hidden="true" />
@@ -594,7 +583,7 @@ function Timeline({ items, onOpenDocument }) {
                 <div className={styles.timelineContent}>
                   <div className={styles.timelineTop}>
                     <span className="badge badge-neutral">{item.type}</span>
-                    <time>{formatDate(item.date)}</time>
+                    <time>{formatDatePtBr(item.date)}</time>
                   </div>
                   <strong>{item.title}</strong>
                   <p>{item.detail}</p>
@@ -665,7 +654,7 @@ function SessionsPanel({ patient, sessions }) {
               to={'/sessions/' + session.id}
             >
               <div>
-                <strong>{formatDate(session.date)}</strong>
+                <strong>{formatDatePtBr(session.date)}</strong>
                 <span>{session.mainTheme || 'Sem tema informado'}</span>
               </div>
               <span
@@ -717,7 +706,7 @@ function DocumentsPanel({ patient, documents, onOpenDocument }) {
               <div>
                 <strong>{document.name}</strong>
                 <span>
-                  {document.category || 'Documento'} • {formatDate(document.uploadedAt)}
+                  {document.category || 'Documento'} • {formatDatePtBr(document.uploadedAt)}
                 </span>
               </div>
               <ChevronRight size={17} aria-hidden="true" />
