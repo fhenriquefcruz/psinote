@@ -106,7 +106,33 @@ beforeEach(async () => {
       setDoc(
         doc(db, 'appointments/alice-appointment'),
         clinicalRecord('alice', {
-          status: 'scheduled'
+          status: 'scheduled',
+          date: '2026-10-03',
+          time: '09:00',
+          recurrence: null,
+          sessionId: null,
+          recordCompletedAt: null
+        })
+      ),
+      setDoc(
+        doc(db, 'appointments/alice-done'),
+        clinicalRecord('alice', {
+          status: 'done',
+          date: '2026-10-02',
+          time: '10:00',
+          recurrence: null,
+          sessionId: null,
+          recordCompletedAt: null
+        })
+      ),
+      setDoc(
+        doc(db, 'sessions/alice-other-patient'),
+        clinicalRecord('alice', {
+          patientId: 'patient-2',
+          mainTheme: 'Other patient',
+          status: 'finalized',
+          version: 2,
+          revision: 4
         })
       ),
       setDoc(
@@ -435,6 +461,173 @@ describe('Session lifecycle integrity', () => {
         updatedBy: 'alice',
         version: 1,
         revision: 4
+      })
+    );
+  });
+});
+
+
+describe('Appointment lifecycle integrity', () => {
+  const createPayload = (overrides = {}) => ({
+    psychologistId: 'alice',
+    patientId: 'patient-1',
+    patientName: 'Alice patient',
+    date: '2026-10-10',
+    time: '14:00',
+    duration: 50,
+    modality: 'in_person',
+    notes: '',
+    status: 'scheduled',
+    cancelReason: '',
+    recordCompletedAt: null,
+    sessionId: null,
+    recurrence: {
+      kind: 'weekly',
+      seriesId: 'series-1',
+      index: 0,
+      total: 4
+    },
+    createdAt: '2026-10-03T00:00:00.000Z',
+    updatedAt: '2026-10-03T00:00:00.000Z',
+    createdBy: 'alice',
+    updatedBy: 'alice',
+    ...overrides
+  });
+
+  test('owner can create a scheduled recurring appointment but cannot forge terminal creation', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertSucceeds(
+      setDoc(doc(alice, 'appointments/new-series-item'), createPayload())
+    );
+
+    await assertFails(
+      setDoc(
+        doc(alice, 'appointments/forged-done'),
+        createPayload({ status: 'done' })
+      )
+    );
+  });
+
+  test('another tenant cannot create an appointment for Alice', async () => {
+    const bob = testEnv.authenticatedContext('bob').firestore();
+
+    await assertFails(
+      setDoc(
+        doc(bob, 'appointments/forged-owner'),
+        createPayload({
+          psychologistId: 'alice',
+          createdBy: 'bob',
+          updatedBy: 'bob'
+        })
+      )
+    );
+  });
+
+  test('scheduled appointment may be confirmed but its date and recurrence are immutable', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+    const ref = doc(alice, 'appointments/alice-appointment');
+
+    await assertSucceeds(
+      updateDoc(ref, {
+        status: 'confirmed',
+        updatedBy: 'alice',
+        updatedAt: '2026-10-03T01:00:00.000Z'
+      })
+    );
+
+    await assertFails(
+      updateDoc(ref, {
+        date: '2026-10-20',
+        updatedBy: 'alice',
+        updatedAt: '2026-10-03T02:00:00.000Z'
+      })
+    );
+
+    await assertFails(
+      updateDoc(ref, {
+        recurrence: { kind: 'monthly', seriesId: 'forged', index: 0, total: 3 },
+        updatedBy: 'alice',
+        updatedAt: '2026-10-03T02:00:00.000Z'
+      })
+    );
+  });
+
+  test('completed appointment cannot be reopened to scheduled state', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertFails(
+      updateDoc(doc(alice, 'appointments/alice-done'), {
+        status: 'scheduled',
+        updatedBy: 'alice',
+        updatedAt: '2026-10-03T02:00:00.000Z'
+      })
+    );
+  });
+
+  test('completed appointment can link only to a finalized session for the same patient', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+    const appointmentRef = doc(alice, 'appointments/alice-done');
+
+    await assertSucceeds(
+      updateDoc(appointmentRef, {
+        sessionId: 'alice-finalized',
+        recordCompletedAt: '2026-10-03T03:00:00.000Z',
+        updatedBy: 'alice',
+        updatedAt: '2026-10-03T03:00:00.000Z'
+      })
+    );
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), 'appointments/alice-done'), {
+        sessionId: null,
+        recordCompletedAt: null
+      });
+    });
+
+    await assertFails(
+      updateDoc(appointmentRef, {
+        sessionId: 'alice-session',
+        recordCompletedAt: '2026-10-03T03:00:00.000Z',
+        updatedBy: 'alice',
+        updatedAt: '2026-10-03T03:00:00.000Z'
+      })
+    );
+
+    await assertFails(
+      updateDoc(appointmentRef, {
+        sessionId: 'alice-other-patient',
+        recordCompletedAt: '2026-10-03T03:00:00.000Z',
+        updatedBy: 'alice',
+        updatedAt: '2026-10-03T03:00:00.000Z'
+      })
+    );
+  });
+
+  test('canceled or missed appointment may only receive reschedule linkage', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), 'appointments/alice-appointment'), {
+        status: 'canceled'
+      });
+    });
+
+    const alice = testEnv.authenticatedContext('alice').firestore();
+    const ref = doc(alice, 'appointments/alice-appointment');
+
+    await assertSucceeds(
+      updateDoc(ref, {
+        rescheduledToId: 'new-appointment-id',
+        rescheduledAt: '2026-10-03T04:00:00.000Z',
+        updatedBy: 'alice',
+        updatedAt: '2026-10-03T04:00:00.000Z'
+      })
+    );
+
+    await assertFails(
+      updateDoc(ref, {
+        notes: 'Rewrite after cancellation',
+        updatedBy: 'alice',
+        updatedAt: '2026-10-03T05:00:00.000Z'
       })
     );
   });
