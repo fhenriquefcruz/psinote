@@ -33,7 +33,7 @@ jobs:
         run: npm install
 
       - name: Dependency security audit
-        run: npm audit --json --audit-level=high
+        run: npm audit --audit-level=moderate
 
       - name: Security baseline
         run: npm run security:check
