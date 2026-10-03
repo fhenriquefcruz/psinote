@@ -127,6 +127,24 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "session_versions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "psychologistId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "sessionId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "version",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
