@@ -78,6 +78,21 @@ export const getAppointments = async (psychologistId, startDate, endDate) => {
   }));
 };
 
+export const getAppointmentsByPatient = async (psychologistId, patientId) => {
+  const appointmentsQuery = query(
+    collection(db, COLLECTION),
+    where('psychologistId', '==', psychologistId),
+    where('patientId', '==', patientId),
+    orderBy('date', 'desc')
+  );
+
+  const querySnapshot = await getDocs(appointmentsQuery);
+  return querySnapshot.docs.map((snapshot) => ({
+    id: snapshot.id,
+    ...snapshot.data()
+  }));
+};
+
 export const updateAppointmentStatus = async (
   appointmentId,
   psychologistId,
