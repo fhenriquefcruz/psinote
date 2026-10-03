@@ -14,6 +14,7 @@ import {
   updateSession
 } from '../../services/sessionService';
 import { markAppointmentRecordCompleted } from '../../services/appointmentService';
+import { parseDateValue, toDateInputValue } from '../../utils/date';
 import styles from './SessionWorkspace.module.css';
 
 const EMPTY_FORM = {
@@ -27,22 +28,6 @@ const EMPTY_FORM = {
   agreements: '',
   nextSteps: '',
   tagsText: ''
-};
-
-const toDate = (value) => {
-  if (!value) return null;
-  if (typeof value?.toDate === 'function') return value.toDate();
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const toDateInput = (value) => {
-  const date = toDate(value);
-  if (!date) return new Date().toISOString().slice(0, 10);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return year + '-' + month + '-' + day;
 };
 
 const buildPayload = (form) => ({
@@ -60,7 +45,7 @@ const buildPayload = (form) => ({
 
 const normalizeSessionForForm = (session) => ({
   patientId: session.patientId || '',
-  date: toDateInput(session.date),
+  date: toDateInputValue(session.date),
   mainTheme: session.mainTheme || '',
   observations: session.observations || '',
   evolution: session.evolution || '',
@@ -328,7 +313,7 @@ export default function SessionWorkspace() {
             <div className="section-kicker">Sessão {session?.sessionNumber || ''}</div>
             <h1 className={styles.patientName}>{patient?.name || session?.patientName || 'Paciente'}</h1>
             <div className={styles.meta}>
-              <span>{toDate(form.date)?.toLocaleDateString('pt-BR') || form.date}</span>
+              <span>{parseDateValue(form.date)?.toLocaleDateString('pt-BR') || form.date}</span>
               <span className={'badge ' + (finalized ? 'badge-success' : 'badge-warning')}>
                 {finalized ? 'Finalizada' : 'Rascunho'}
               </span>
@@ -388,7 +373,7 @@ export default function SessionWorkspace() {
             <div className="surface-body">
               {previousSession ? (
                 <div className={styles.previous}>
-                  <strong>{toDate(previousSession.date)?.toLocaleDateString('pt-BR') || 'Anterior'}</strong>
+                  <strong>{parseDateValue(previousSession.date)?.toLocaleDateString('pt-BR') || 'Anterior'}</strong>
                   <p>{previousSession.mainTheme || 'Sem tema registrado.'}</p>
                   {previousSession.agreements && (
                     <div className={styles.callout}>
