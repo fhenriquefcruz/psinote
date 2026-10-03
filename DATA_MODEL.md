@@ -24,9 +24,38 @@ Required security metadata:
 Scheduling records owned by a professional.
 
 ### sessions
-Session workspace/record metadata owned by a professional.
+Current session workspace / latest clinical record state owned by a professional.
 
-Current version history is embedded and capped. This is transitional; formal clinical record versioning should move to immutable version records.
+Key integrity fields:
+- psychologistId
+- patientId
+- version
+- revision
+- status
+- createdAt / updatedAt
+- createdBy / updatedBy
+
+`version` advances only on a formal save/lifecycle transition. `revision` advances on every persisted edit, including autosave.
+
+New sessions no longer append clinical history into the parent document.
+
+### session_versions
+Immutable historical state for a session.
+
+Each record contains:
+- psychologistId
+- patientId
+- sessionId
+- version
+- revision
+- reason
+- snapshot
+- createdAt
+- createdBy
+
+Security Rules validate that the version snapshot corresponds to the actual owned parent session state at the moment it is superseded. Browser clients may append a valid version but cannot update or delete one.
+
+Legacy `sessions.previousVersions` remains readable during migration and is immutable.
 
 ### documents
 Document metadata.
@@ -60,7 +89,6 @@ The domain model should introduce entities only when their workflow is implement
 - guardians
 - treatment_plans
 - clinical_records
-- clinical_record_versions
 - document_templates
 - document_versions
 - attachments
@@ -77,5 +105,6 @@ The domain model should introduce entities only when their workflow is implement
 - preserve historical issued-document versions;
 - prefer soft lifecycle states for clinical records until retention policy authorizes disposal;
 - immutable versions must reference their parent record and author;
+- formal clinical history must not be silently overwritten; finalized state requires explicit re-opening before editing;
 - timestamps should use server-generated time for persisted events;
 - relationships involving guardians, organizations and delegated access require explicit authorization semantics.

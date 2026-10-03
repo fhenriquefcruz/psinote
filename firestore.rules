@@ -47,6 +47,139 @@ service cloud.firestore {
         == resource.data.get('patientId', null);
     }
 
+    function preservesLegacySessionHistory() {
+      return request.resource.data.get('previousVersions', [])
+        == resource.data.get('previousVersions', []);
+    }
+
+    function validSessionCreate() {
+      return ownsIncomingRecord()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.get('version', 1) == 1
+        && request.resource.data.get('revision', 1) == 1
+        && request.resource.data.status in ['draft', 'scheduled'];
+    }
+
+    function validSessionRevisionStep() {
+      let oldVersion = resource.data.get('version', 1);
+      let newVersion = request.resource.data.get('version', 1);
+      let oldRevision = resource.data.get('revision', oldVersion);
+      let newRevision = request.resource.data.get('revision', oldRevision);
+      return (newVersion == oldVersion || newVersion == oldVersion + 1)
+        && newRevision == oldRevision + 1;
+    }
+
+    function validSessionStateTransition() {
+      let oldStatus = resource.data.get('status', 'draft');
+      let newStatus = request.resource.data.get('status', oldStatus);
+      let oldVersion = resource.data.get('version', 1);
+      let newVersion = request.resource.data.get('version', oldVersion);
+
+      return (
+          oldStatus in ['draft', 'scheduled']
+          && newStatus == oldStatus
+          && (newVersion == oldVersion || newVersion == oldVersion + 1)
+        )
+        || (
+          oldStatus in ['draft', 'scheduled']
+          && newStatus in ['finalized', 'archived']
+          && newVersion == oldVersion + 1
+        )
+        || (
+          oldStatus == 'finalized'
+          && newStatus in ['draft', 'archived']
+          && newVersion == oldVersion + 1
+        )
+        || (
+          oldStatus == 'archived'
+          && newStatus == 'draft'
+          && newVersion == oldVersion + 1
+        );
+    }
+
+    function validSessionUpdate() {
+      return ownsExistingRecord()
+        && preservesOwnership()
+        && preservesPatientLink()
+        && preservesCreationMetadata()
+        && preservesLegacySessionHistory()
+        && request.resource.data.updatedBy == request.auth.uid
+        && validSessionRevisionStep()
+        && validSessionStateTransition();
+    }
+
+    function validSessionVersionCreate() {
+      let sessionId = request.resource.data.sessionId;
+      let parentPath = /databases/$(database)/documents/sessions/$(sessionId);
+      let parent = get(parentPath).data;
+      let snapshot = request.resource.data.snapshot;
+
+      return ownsIncomingRecord()
+        && request.resource.data.keys().hasOnly([
+          'psychologistId',
+          'patientId',
+          'sessionId',
+          'version',
+          'revision',
+          'reason',
+          'snapshot',
+          'createdAt',
+          'createdBy'
+        ])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.version is int
+        && request.resource.data.version > 0
+        && request.resource.data.revision is int
+        && request.resource.data.revision > 0
+        && request.resource.data.snapshot is map
+        && request.resource.data.reason in [
+          'manual-save',
+          'finalize',
+          'reopen',
+          'archive',
+          'restore'
+        ]
+        && exists(parentPath)
+        && parent.psychologistId == request.auth.uid
+        && parent.patientId == request.resource.data.patientId
+        && request.resource.data.version == parent.get('version', 1)
+        && request.resource.data.revision
+          == parent.get('revision', parent.get('version', 1))
+        && snapshot.keys().hasOnly([
+          'appointmentId',
+          'sessionNumber',
+          'patientName',
+          'date',
+          'mainTheme',
+          'observations',
+          'evolution',
+          'interventions',
+          'referrals',
+          'agreements',
+          'nextSteps',
+          'tags',
+          'status',
+          'finalizedAt',
+          'reopenedAt'
+        ])
+        && snapshot.get('appointmentId', null) == parent.get('appointmentId', null)
+        && snapshot.get('sessionNumber', null) == parent.get('sessionNumber', null)
+        && snapshot.get('patientName', null) == parent.get('patientName', null)
+        && snapshot.get('date', null) == parent.get('date', null)
+        && snapshot.get('mainTheme', '') == parent.get('mainTheme', '')
+        && snapshot.get('observations', '') == parent.get('observations', '')
+        && snapshot.get('evolution', '') == parent.get('evolution', '')
+        && snapshot.get('interventions', '') == parent.get('interventions', '')
+        && snapshot.get('referrals', '') == parent.get('referrals', '')
+        && snapshot.get('agreements', '') == parent.get('agreements', '')
+        && snapshot.get('nextSteps', '') == parent.get('nextSteps', '')
+        && snapshot.get('tags', []) == parent.get('tags', [])
+        && snapshot.get('status', 'draft') == parent.get('status', 'draft')
+        && snapshot.get('finalizedAt', null) == parent.get('finalizedAt', null)
+        && snapshot.get('reopenedAt', null) == parent.get('reopenedAt', null);
+    }
+
     function safeActivityPayload() {
       return request.resource.data.keys().hasOnly([
           'psychologistId',
@@ -102,13 +235,16 @@ service cloud.firestore {
     }
 
     match /sessions/{recordId} {
-      allow create: if ownsIncomingRecord();
+      allow create: if validSessionCreate();
       allow read: if ownsExistingRecord();
-      allow update: if ownsExistingRecord()
-        && preservesOwnership()
-        && preservesPatientLink()
-        && preservesCreationMetadata();
+      allow update: if validSessionUpdate();
       allow delete: if false;
+    }
+
+    match /session_versions/{versionId} {
+      allow create: if validSessionVersionCreate();
+      allow read: if ownsExistingRecord();
+      allow update, delete: if false;
     }
 
     match /appointments/{recordId} {

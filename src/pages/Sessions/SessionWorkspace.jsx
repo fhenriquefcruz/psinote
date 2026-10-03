@@ -9,6 +9,7 @@ import {
   createSession,
   finalizeSession,
   getSessionById,
+  getSessionVersions,
   getSessionsByPatient,
   reopenSession,
   updateSession
@@ -72,6 +73,7 @@ export default function SessionWorkspace() {
   const [patient, setPatient] = useState(null);
   const [patients, setPatients] = useState([]);
   const [history, setHistory] = useState([]);
+  const [versions, setVersions] = useState([]);
   const [loading, setLoading] = useState(!isNew);
   const [creating, setCreating] = useState(false);
   const [saveStatus, setSaveStatus] = useState('saved');
@@ -106,13 +108,15 @@ export default function SessionWorkspace() {
         setForm(nextForm);
         lastSaved.current = signature(nextForm);
 
-        const [patientData, sessionHistory] = await Promise.all([
+        const [patientData, sessionHistory, versionHistory] = await Promise.all([
           getPatientById(existing.patientId, user.uid),
-          getSessionsByPatient(existing.patientId, user.uid)
+          getSessionsByPatient(existing.patientId, user.uid),
+          getSessionVersions(existing.id, user.uid)
         ]);
 
         setPatient(patientData);
         setHistory(sessionHistory.filter((item) => item.id !== existing.id).slice(0, 4));
+        setVersions(versionHistory);
         hydrated.current = true;
       } catch {
         toast.error('Não foi possível abrir a sessão.');
@@ -191,11 +195,18 @@ export default function SessionWorkspace() {
     }
   };
 
+  const refreshVersions = async () => {
+    if (!session?.id || !user) return;
+    const versionHistory = await getSessionVersions(session.id, user.uid);
+    setVersions(versionHistory);
+  };
+
   const manualSave = async () => {
     setSaveStatus('saving');
     try {
       const updated = await updateSession(session.id, user.uid, buildPayload(form), true);
-      setSession((current) => ({ ...current, version: updated.version }));
+      setSession((current) => ({ ...current, version: updated.version, revision: updated.revision }));
+      await refreshVersions();
       lastSaved.current = signature(form);
       setSaveStatus('saved');
       toast.success('Registro salvo e versionado.');
@@ -219,7 +230,13 @@ export default function SessionWorkspace() {
       if (session.appointmentId) {
         await markAppointmentRecordCompleted(session.appointmentId, user.uid, session.id);
       }
-      setSession((current) => ({ ...current, status: 'finalized', version: updated.version }));
+      setSession((current) => ({
+        ...current,
+        status: 'finalized',
+        version: updated.version,
+        revision: updated.revision
+      }));
+      await refreshVersions();
       lastSaved.current = signature(form);
       setSaveStatus('saved');
       toast.success('Registro finalizado.');
@@ -232,8 +249,14 @@ export default function SessionWorkspace() {
   const reopen = async () => {
     if (!window.confirm('Reabrir este registro para edição?')) return;
     try {
-      await reopenSession(session.id, user.uid);
-      setSession((current) => ({ ...current, status: 'draft' }));
+      const updated = await reopenSession(session.id, user.uid);
+      setSession((current) => ({
+        ...current,
+        status: 'draft',
+        version: updated.version,
+        revision: updated.revision
+      }));
+      await refreshVersions();
       toast.info('Registro reaberto.');
     } catch {
       toast.error('Não foi possível reabrir.');
@@ -393,6 +416,12 @@ export default function SessionWorkspace() {
               )}
             </div>
           </section>
+
+          <VersionHistory
+            currentVersion={session?.version || 1}
+            currentRevision={session?.revision || session?.version || 1}
+            versions={versions}
+          />
         </aside>
 
         <section className={'surface ' + styles.editor}>
@@ -506,6 +535,83 @@ function SaveState({ status }) {
     <div className={view[1]} role="status" aria-live="polite">
       <Clock size={14} aria-hidden="true" />
       {view[0]}
+    </div>
+  );
+}
+
+
+const VERSION_REASON_LABEL = {
+  'manual-save': 'Salvamento manual',
+  finalize: 'Finalização',
+  reopen: 'Reabertura',
+  archive: 'Arquivamento',
+  restore: 'Restauração',
+  'legacy-embedded': 'Histórico legado'
+};
+
+function VersionHistory({ currentVersion, currentRevision, versions }) {
+  return (
+    <section className="surface">
+      <div className="surface-header">
+        <div>
+          <div className="section-kicker">Integridade</div>
+          <h2 className="section-title">Histórico de versões</h2>
+        </div>
+        <span className="badge badge-neutral">v{currentVersion}</span>
+      </div>
+
+      <div className={styles.versionBody}>
+        <div className={styles.currentVersion}>
+          <div>
+            <strong>Versão atual</strong>
+            <span>
+              versão {currentVersion} • revisão {currentRevision}
+            </span>
+          </div>
+          <span className="badge badge-success">Atual</span>
+        </div>
+
+        {versions.length === 0 ? (
+          <p className={styles.versionEmpty}>
+            Nenhuma versão anterior consolidada ainda.
+          </p>
+        ) : (
+          <div className={styles.versionList}>
+            {versions.slice(0, 8).map((item) => (
+              <details key={item.id} className={styles.versionItem}>
+                <summary>
+                  <div>
+                    <strong>Versão {item.version}</strong>
+                    <span>
+                      {VERSION_REASON_LABEL[item.reason] || 'Versão preservada'}
+                      {item.createdAt
+                        ? ' • ' + (parseDateValue(item.createdAt)?.toLocaleString('pt-BR') || '')
+                        : ''}
+                    </span>
+                  </div>
+                </summary>
+                <div className={styles.versionSnapshot}>
+                  <VersionField label="Tema principal" value={item.snapshot?.mainTheme} />
+                  <VersionField label="Evolução" value={item.snapshot?.evolution} />
+                  <VersionField label="Acordos" value={item.snapshot?.agreements} />
+                  <VersionField label="Próximos passos" value={item.snapshot?.nextSteps} />
+                </div>
+              </details>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function VersionField({ label, value }) {
+  if (!value) return null;
+
+  return (
+    <div>
+      <span>{label}</span>
+      <p>{value}</p>
     </div>
   );
 }

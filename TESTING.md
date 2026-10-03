@@ -38,7 +38,12 @@ Runs Firestore and Storage emulators using a demo project ID and tests:
 - private file access;
 - MIME validation;
 - empty-file rejection;
-- storage overwrite/delete denial.
+- storage overwrite/delete denial;
+- session revision sequencing;
+- finalized-session silent edit denial;
+- immutable version append/read boundaries;
+- version snapshot/parent consistency;
+- immutable legacy embedded history.
 
 The tests use `@firebase/rules-unit-testing`, which supports mock authenticated contexts against the Emulator Suite without contacting production.
 
