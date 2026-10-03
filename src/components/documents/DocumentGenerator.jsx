@@ -45,6 +45,11 @@ export default function DocumentGenerator({ patientId, onClose }) {
   };
 
   const handleGenerate = async (saveToStorage = false) => {
+    if (!userProfile?.crp || !userProfile?.crpUf) {
+      toast.error('Informe seu registro profissional nas configurações antes de gerar documentos psicológicos.');
+      return;
+    }
+
     setLoading(true);
     try {
       const template = getTemplate(docType);
@@ -99,6 +104,22 @@ export default function DocumentGenerator({ patientId, onClose }) {
         <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
           <X size={24} />
         </button>
+      </div>
+
+      <div
+        role="note"
+        style={{
+          marginBottom: '1rem',
+          padding: '0.8rem 1rem',
+          border: '1px solid var(--border-color)',
+          borderRadius: 'var(--radius-sm)',
+          background: 'var(--bg-tertiary)',
+          color: 'var(--text-secondary)',
+          fontSize: '0.85rem'
+        }}
+      >
+        <strong>Modelo em revisão normativa.</strong> O conteúdo gerado é um rascunho e não substitui
+        a avaliação técnica, ética e documental da pessoa profissional responsável.
       </div>
 
       {/* Seleção de Tipo */}
