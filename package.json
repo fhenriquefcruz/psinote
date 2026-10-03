@@ -12,9 +12,11 @@
     "security:dependencies": "npm audit --audit-level=moderate",
     "test:rules": "npx --yes firebase-tools@15.30.2 emulators:exec --project demo-psinote-rules --only firestore,storage \"node --test tests/security-rules/*.test.mjs\"",
     "test:unit": "node --test tests/unit/*.test.mjs",
-    "test:e2e": "playwright test",
-    "test:e2e:emulated": "npx --yes firebase-tools@15.30.2 emulators:exec --project demo-psinote-e2e --only auth,firestore,storage \"playwright test\"",
-    "test:production-smoke": "playwright test -c playwright.production.config.js"
+    "test:e2e": "playwright test --project=desktop-chromium --project=mobile-375 --project=mobile-390 --project=mobile-430",
+    "test:e2e:emulated": "npx --yes firebase-tools@15.30.2 emulators:exec --project demo-psinote-e2e --only auth,firestore,storage \"npm run test:e2e\"",
+    "test:production-smoke": "playwright test -c playwright.production.config.js",
+    "test:visual": "playwright test --project=visual-chromium",
+    "test:visual:emulated": "npx --yes firebase-tools@15.30.2 emulators:exec --project demo-psinote-e2e --only auth,firestore,storage \"npm run test:visual\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",
