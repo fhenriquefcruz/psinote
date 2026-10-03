@@ -13,23 +13,20 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { addActivity } from './activityService';
+import {
+  APPOINTMENT_STATUSES,
+  buildRecurringDateKeys,
+  canRescheduleAppointment,
+  isAppointmentTerminal,
+  normalizeAppointmentRecurrence
+} from '../domain/appointments';
 
 const COLLECTION = 'appointments';
 
-export const APPOINTMENT_STATUSES = [
-  'scheduled',
-  'confirmed',
-  'done',
-  'canceled',
-  'rescheduled',
-  'missed'
-];
-
-export const APPOINTMENT_MODALITIES = [
-  'in_person',
-  'online',
-  'other'
-];
+export {
+  APPOINTMENT_STATUSES,
+  APPOINTMENT_MODALITIES
+} from '../domain/appointments';
 
 const getOwnedAppointmentSnapshot = async (appointmentId, psychologistId) => {
   if (!psychologistId) throw new Error('Usuário não autenticado.');
@@ -45,66 +42,6 @@ const getOwnedAppointmentSnapshot = async (appointmentId, psychologistId) => {
   }
 
   return { appointmentRef, snapshot, data };
-};
-
-const parseLocalDate = (dateValue) => {
-  const match = String(dateValue || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) throw new Error('Data de agendamento inválida.');
-
-  const [, year, month, day] = match;
-  return new Date(Number(year), Number(month) - 1, Number(day), 12, 0, 0, 0);
-};
-
-const toDateKey = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return year + '-' + month + '-' + day;
-};
-
-const addMonthsClamped = (date, months) => {
-  const originalDay = date.getDate();
-  const target = new Date(date);
-  target.setDate(1);
-  target.setMonth(target.getMonth() + months);
-  const lastDay = new Date(
-    target.getFullYear(),
-    target.getMonth() + 1,
-    0
-  ).getDate();
-  target.setDate(Math.min(originalDay, lastDay));
-  return target;
-};
-
-const recurrenceDate = (startDate, kind, index) => {
-  const date = parseLocalDate(startDate);
-
-  if (kind === 'weekly') {
-    date.setDate(date.getDate() + index * 7);
-  } else if (kind === 'biweekly') {
-    date.setDate(date.getDate() + index * 14);
-  } else if (kind === 'monthly') {
-    return toDateKey(addMonthsClamped(date, index));
-  }
-
-  return toDateKey(date);
-};
-
-const normalizeOccurrences = (recurrence) => {
-  if (!recurrence || recurrence.kind === 'none') {
-    return { kind: 'none', occurrences: 1 };
-  }
-
-  if (!['weekly', 'biweekly', 'monthly'].includes(recurrence.kind)) {
-    throw new Error('Recorrência inválida.');
-  }
-
-  const occurrences = Number(recurrence.occurrences || 1);
-  if (!Number.isInteger(occurrences) || occurrences < 2 || occurrences > 52) {
-    throw new Error('A recorrência deve ter entre 2 e 52 ocorrências.');
-  }
-
-  return { kind: recurrence.kind, occurrences };
 };
 
 const makeSeriesId = () => {
@@ -140,17 +77,18 @@ export const createAppointmentSeries = async (
     throw new Error('Paciente, data e horário são obrigatórios.');
   }
 
-  const normalizedRecurrence = normalizeOccurrences(recurrence);
+  const normalizedRecurrence = normalizeAppointmentRecurrence(recurrence);
+  const dates = buildRecurringDateKeys(data.date, normalizedRecurrence);
   const batch = writeBatch(db);
   const seriesId =
     normalizedRecurrence.occurrences > 1 ? makeSeriesId() : null;
   const created = [];
 
-  for (let index = 0; index < normalizedRecurrence.occurrences; index += 1) {
+  for (let index = 0; index < dates.length; index += 1) {
     const appointmentRef = doc(collection(db, COLLECTION));
     const appointmentData = {
       ...baseAppointmentData(psychologistId, data),
-      date: recurrenceDate(data.date, normalizedRecurrence.kind, index),
+      date: dates[index],
       recurrence: {
         kind: normalizedRecurrence.kind,
         seriesId,
@@ -248,7 +186,7 @@ export const updateAppointmentStatus = async (
 
   if (!data) throw new Error('Agendamento não encontrado.');
 
-  if (['done', 'canceled', 'rescheduled', 'missed'].includes(data.status)) {
+  if (isAppointmentTerminal(data.status)) {
     throw new Error('Este atendimento já está em estado final.');
   }
 
@@ -288,7 +226,7 @@ export const updateAppointment = async (
     await getOwnedAppointmentSnapshot(appointmentId, psychologistId);
 
   if (!currentData) throw new Error('Agendamento não encontrado.');
-  if (['done', 'canceled', 'rescheduled', 'missed'].includes(currentData.status)) {
+  if (isAppointmentTerminal(currentData.status)) {
     throw new Error('Atendimentos encerrados não podem ser editados diretamente.');
   }
 
@@ -324,7 +262,7 @@ export const rescheduleAppointment = async (
     await getOwnedAppointmentSnapshot(appointmentId, psychologistId);
 
   if (!currentData) throw new Error('Agendamento não encontrado.');
-  if (!['scheduled', 'confirmed', 'canceled', 'missed'].includes(currentData.status)) {
+  if (!canRescheduleAppointment(currentData.status)) {
     throw new Error('Este atendimento não pode ser remarcado.');
   }
 
