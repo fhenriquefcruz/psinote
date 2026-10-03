@@ -57,22 +57,52 @@ Security Rules validate that the version snapshot corresponds to the actual owne
 
 Legacy `sessions.previousVersions` remains readable during migration and is immutable.
 
-### documents
-Document metadata.
+### document_drafts
+Editable document-authoring state owned by a professional.
 
-Target metadata:
+Key fields:
+- psychologistId
+- patientId
+- patientName
+- templateId / templateVersion
+- templateType / templateFamily
+- values
+- status: draft | issued
+- familyId
+- issueVersion
+- supersedesDocumentId
+- issuedDocumentId / issuedAt
+- createdAt / updatedAt
+- createdBy / updatedBy
+
+Drafts are editable only while status is `draft`. The transition to `issued` must be paired, in the same Firestore batch, with creation of the immutable issued document record.
+
+### documents
+Immutable metadata for stored files and issued document artifacts.
+
+Common metadata:
 - psychologistId
 - patientId (nullable)
 - name
 - category
-- storageProvider
-- storagePath
-- fileType
-- fileSize
-- sha256
+- kind: attachment | generated
+- status: stored | issued
+- storageProvider / storagePath
+- fileType / fileSize / sha256
 - version
-- createdAt / updatedAt
-- createdBy / updatedBy
+- familyId
+- createdAt / uploadedAt / updatedAt
+- createdBy / uploadedBy / updatedBy
+
+Generated issued documents additionally store:
+- templateId / templateVersion / templateType
+- draftId
+- supersedesDocumentId
+- issuedAt / issuedBy
+
+Every generated issue is a new immutable record. Revision is modeled as a new draft/new issue within the same `familyId`, rather than mutating a previously issued artifact.
+
+System templates are versioned in code under `src/domain/documentTemplates.js`. Future user/organization-authored templates will require a separately secured template registry.
 
 A permanent public URL is not target-state metadata.
 
@@ -89,8 +119,7 @@ The domain model should introduce entities only when their workflow is implement
 - guardians
 - treatment_plans
 - clinical_records
-- document_templates
-- document_versions
+- custom_document_templates
 - attachments
 - consents
 - audit_events
