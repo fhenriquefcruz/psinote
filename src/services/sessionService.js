@@ -351,17 +351,19 @@ export const duplicateSession = async (sessionId, psychologistId) => {
   const original = await getSessionById(sessionId, psychologistId);
   if (!original) throw new Error('Sessão não encontrada.');
 
-  const {
-    id,
-    createdAt,
-    updatedAt,
-    createdBy,
-    updatedBy,
-    finalizedAt,
-    reopenedAt,
-    previousVersions,
-    ...rest
-  } = original;
+  const omittedFields = new Set([
+    'id',
+    'createdAt',
+    'updatedAt',
+    'createdBy',
+    'updatedBy',
+    'finalizedAt',
+    'reopenedAt',
+    'previousVersions'
+  ]);
+  const rest = Object.fromEntries(
+    Object.entries(original).filter(([key]) => !omittedFields.has(key))
+  );
 
   const newData = {
     ...rest,
