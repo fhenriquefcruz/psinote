@@ -48,6 +48,20 @@ for (const file of sourceFiles) {
   }
 }
 
+const searchService = sourceFiles.find(
+  (file) => path.relative(root, file.path).replace(/\\/g, '/')
+    === 'src/services/searchService.js'
+);
+
+if (searchService) {
+  const forbiddenClinicalSearchFields = /\b(mainTheme|clinicalEvolution|evolution|observations|interventions|referrals|agreements|nextSteps|anamnesis|tags)\b/;
+  if (forbiddenClinicalSearchFields.test(searchService.content)) {
+    violations.push(
+      'clinical narrative field referenced by global search: src/services/searchService.js'
+    );
+  }
+}
+
 for (const requiredFile of ['firestore.rules', 'storage.rules', 'firebase.json']) {
   if (!fs.existsSync(path.join(root, requiredFile))) {
     violations.push(`missing security configuration: ${requiredFile}`);
