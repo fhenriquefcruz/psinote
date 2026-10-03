@@ -228,6 +228,7 @@ export const issueGeneratedDocument = async ({
   return { id: documentRef.id, ...documentData };
 };
 
+/** @returns {Promise<DocumentRecord[]>} */
 export const getDocuments = async (psychologistId, patientId = null) => {
   let documentsQuery = query(
     collection(db, COLLECTION),
@@ -249,6 +250,7 @@ export const getDocuments = async (psychologistId, patientId = null) => {
   }));
 };
 
+/** @returns {Promise<DocumentRecord | null>} */
 export const getDocumentById = async (documentId, psychologistId) => {
   const snapshot = await getDoc(doc(db, COLLECTION, documentId));
   if (!snapshot.exists()) return null;
