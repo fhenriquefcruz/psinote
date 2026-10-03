@@ -1,4 +1,4 @@
-import { parseDateValue, toDateInputValue } from './date';
+import { parseDateValue, toDateInputValue } from './date.js';
 
 export const addDays = (value, amount) => {
   const date = parseDateValue(value) || new Date();
