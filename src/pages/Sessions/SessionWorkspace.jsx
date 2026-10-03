@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, Clock3, Save } from 'lucide-react';
+import { ChevronLeft, CheckCircle, Clock, Save } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../hooks/useAuth';
 import { getPatientById, getPatients } from '../../services/patientService';
@@ -267,7 +267,7 @@ export default function SessionWorkspace() {
             <p className="page-subtitle">Crie um rascunho vinculado ao paciente e continue no workspace.</p>
           </div>
           <Link to="/sessions" className="button button-secondary">
-            <ArrowLeft size={18} aria-hidden="true" />
+            <ChevronLeft size={18} aria-hidden="true" />
             Voltar
           </Link>
         </header>
@@ -322,7 +322,7 @@ export default function SessionWorkspace() {
       <header className={styles.workspaceHeader}>
         <div className={styles.identity}>
           <Link to="/sessions" className={styles.backButton} aria-label="Voltar para sessões">
-            <ArrowLeft size={19} aria-hidden="true" />
+            <ChevronLeft size={19} aria-hidden="true" />
           </Link>
           <div>
             <div className="section-kicker">Sessão {session?.sessionNumber || ''}</div>
@@ -349,7 +349,7 @@ export default function SessionWorkspace() {
                 Salvar versão
               </button>
               <button type="button" className="button button-primary" onClick={finish}>
-                <CheckCircle2 size={17} aria-hidden="true" />
+                <CheckCircle size={17} aria-hidden="true" />
                 Finalizar
               </button>
             </>
@@ -519,7 +519,7 @@ function SaveState({ status }) {
 
   return (
     <div className={view[1]} role="status" aria-live="polite">
-      <Clock3 size={14} aria-hidden="true" />
+      <Clock size={14} aria-hidden="true" />
       {view[0]}
     </div>
   );
