@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { registerSyntheticUser } from './helpers/auth.js';
 
-test.beforeEach(async ({ page }, testInfo) => {
-  await registerSyntheticUser(page, undefined, testInfo);
+test.beforeEach(async ({ page }) => {
+  await registerSyntheticUser(page);
 });
 
 test('ordinary user cannot open administration route', async ({ page }) => {
