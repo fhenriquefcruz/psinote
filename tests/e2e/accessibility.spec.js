@@ -13,6 +13,22 @@ const assertA11y = async (page) => {
     ])
     .analyze();
 
+  if (results.violations.length) {
+    console.error(
+      'A11Y_VIOLATIONS',
+      JSON.stringify(
+        results.violations.map((violation) => ({
+          id: violation.id,
+          impact: violation.impact,
+          help: violation.help,
+          targets: violation.nodes.map((node) => node.target)
+        })),
+        null,
+        2
+      )
+    );
+  }
+
   expect(results.violations).toEqual([]);
 };
 
