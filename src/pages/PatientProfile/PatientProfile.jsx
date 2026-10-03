@@ -12,7 +12,7 @@ export default function PatientProfile() {
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await getPatientById(id);
+        const data = await getPatientById(id, user.uid);
         setPatient(data);
       } catch (error) {
         console.error('Erro ao carregar paciente:', error);
@@ -20,8 +20,8 @@ export default function PatientProfile() {
         setLoading(false);
       }
     };
-    if (id) load();
-  }, [id]);
+    if (id && user) load();
+  }, [id, user]);
 
   if (loading) return <div>Carregando...</div>;
   if (!patient) return <div>Paciente não encontrado</div>;
