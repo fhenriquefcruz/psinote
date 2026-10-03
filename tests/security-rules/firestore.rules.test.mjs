@@ -26,15 +26,23 @@ const profile = (overrides = {}) => ({
   ...overrides
 });
 
-const clinicalRecord = (owner, overrides = {}) => ({
-  psychologistId: owner,
-  patientId: 'patient-1',
-  createdAt: '2026-10-03T00:00:00.000Z',
-  updatedAt: '2026-10-03T00:00:00.000Z',
-  createdBy: owner,
-  updatedBy: owner,
-  ...overrides
-});
+const clinicalRecord = (owner, overrides = {}) => {
+  const record = {
+    psychologistId: owner,
+    patientId: 'patient-1',
+    createdAt: '2026-10-03T00:00:00.000Z',
+    updatedAt: '2026-10-03T00:00:00.000Z',
+    createdBy: owner,
+    updatedBy: owner,
+    ...overrides
+  };
+
+  if (overrides.patientId === undefined) {
+    delete record.patientId;
+  }
+
+  return record;
+};
 
 before(async () => {
   testEnv = await initializeTestEnvironment({
