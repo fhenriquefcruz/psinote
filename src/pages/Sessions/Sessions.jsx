@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, FileCheck2, FilePenLine, Plus, Search } from 'lucide-react';
+import { Calendar, CheckCircle, Edit, Plus, Search } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { getSessions } from '../../services/sessionService';
 import { getPatients } from '../../services/patientService';
@@ -127,7 +127,7 @@ export default function Sessions() {
       <section className={styles.list} aria-label="Lista de sessões">
         {filtered.length === 0 ? (
           <div className="surface empty-state">
-            <FilePenLine size={30} aria-hidden="true" />
+            <Edit size={30} aria-hidden="true" />
             <div>
               <strong>Nenhuma sessão encontrada</strong>
               <p>Inicie um registro ou ajuste os filtros.</p>
@@ -151,9 +151,9 @@ export default function Sessions() {
               >
                 <div className={styles.sessionIcon} aria-hidden="true">
                   {session.status === 'finalized' ? (
-                    <FileCheck2 size={19} />
+                    <CheckCircle size={19} />
                   ) : (
-                    <FilePenLine size={19} />
+                    <Edit size={19} />
                   )}
                 </div>
 
@@ -166,7 +166,7 @@ export default function Sessions() {
                     {session.mainTheme || 'Registro sem tema definido'}
                   </div>
                   <div className={styles.sessionMeta}>
-                    <CalendarDays size={14} aria-hidden="true" />
+                    <Calendar size={14} aria-hidden="true" />
                     {date
                       ? date.toLocaleDateString('pt-BR', {
                           day: '2-digit',
