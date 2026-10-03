@@ -2,13 +2,13 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
-  CalendarDays,
-  NotebookPen,
+  Calendar,
+  Edit,
   FileText,
-  BarChart3,
+  BarChart,
   Settings,
   LogOut,
-  ShieldCheck
+  Shield
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import Logo from '../../common/Logo/Logo';
@@ -19,21 +19,21 @@ const navigationGroups = [
     label: 'Hoje',
     items: [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Visão do dia' },
-      { to: '/agenda', icon: CalendarDays, label: 'Agenda' }
+      { to: '/agenda', icon: Calendar, label: 'Agenda' }
     ]
   },
   {
     label: 'Atendimento',
     items: [
       { to: '/patients', icon: Users, label: 'Pacientes' },
-      { to: '/sessions', icon: NotebookPen, label: 'Sessões' }
+      { to: '/sessions', icon: Edit, label: 'Sessões' }
     ]
   },
   {
     label: 'Documentação',
     items: [
       { to: '/documents', icon: FileText, label: 'Documentos' },
-      { to: '/reports', icon: BarChart3, label: 'Relatórios' }
+      { to: '/reports', icon: BarChart, label: 'Relatórios' }
     ]
   },
   {
@@ -104,7 +104,7 @@ export default function Sidebar({ isOpen, onClose }) {
                     `${styles.navLink} ${isActive ? styles.active : ''}`
                   }
                 >
-                  <ShieldCheck size={18} strokeWidth={1.8} aria-hidden="true" />
+                  <Shield size={18} strokeWidth={1.8} aria-hidden="true" />
                   <span>Administração</span>
                 </NavLink>
               </div>
