@@ -24,7 +24,7 @@ export default function Charts({ data, monthlyData }) {
   ];
   const humor = data && data.length > 0 ? data : defaultHumor;
 
-  const CustomTooltip = ({ active, payload, label, type }) => {
+  const CustomTooltip = ({ active = false, payload = [], label = '', type }) => {
     if (active && payload && payload.length) {
       return (
         <div style={{
