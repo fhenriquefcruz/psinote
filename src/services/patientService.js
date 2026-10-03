@@ -12,6 +12,10 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { addActivity } from './activityService';
+import {
+  safelySyncSearchEntry,
+  syncPatientSearchEntry
+} from './searchIndexService';
 
 const COLLECTION = 'patients';
 
@@ -61,6 +65,10 @@ export const createPatient = async (psychologistId, data) => {
     targetId: docRef.id
   });
 
+  await safelySyncSearchEntry(() =>
+    syncPatientSearchEntry(docRef.id, psychologistId, patientData)
+  );
+
   return { id: docRef.id, ...patientData };
 };
 
@@ -86,7 +94,10 @@ export const getPatientById = async (patientId, psychologistId) => {
 };
 
 export const updatePatient = async (patientId, psychologistId, data) => {
-  const { patientRef } = await getOwnedPatientSnapshot(patientId, psychologistId);
+  const { patientRef, data: currentData } = await getOwnedPatientSnapshot(
+    patientId,
+    psychologistId
+  );
   const updateData = {
     ...data,
     psychologistId,
@@ -103,11 +114,21 @@ export const updatePatient = async (patientId, psychologistId, data) => {
     targetId: patientId
   });
 
+  await safelySyncSearchEntry(() =>
+    syncPatientSearchEntry(patientId, psychologistId, {
+      ...currentData,
+      ...updateData
+    })
+  );
+
   return { id: patientId, ...updateData };
 };
 
 export const archivePatient = async (patientId, psychologistId) => {
-  const { patientRef } = await getOwnedPatientSnapshot(patientId, psychologistId);
+  const { patientRef, data: currentData } = await getOwnedPatientSnapshot(
+    patientId,
+    psychologistId
+  );
   await updateDoc(patientRef, {
     status: 'archived',
     archivedAt: serverTimestamp(),
@@ -123,11 +144,21 @@ export const archivePatient = async (patientId, psychologistId) => {
     targetId: patientId
   });
 
+  await safelySyncSearchEntry(() =>
+    syncPatientSearchEntry(patientId, psychologistId, {
+      ...currentData,
+      status: 'archived'
+    })
+  );
+
   return true;
 };
 
 export const restorePatient = async (patientId, psychologistId) => {
-  const { patientRef } = await getOwnedPatientSnapshot(patientId, psychologistId);
+  const { patientRef, data: currentData } = await getOwnedPatientSnapshot(
+    patientId,
+    psychologistId
+  );
   await updateDoc(patientRef, {
     status: 'active',
     archivedAt: null,
@@ -144,13 +175,23 @@ export const restorePatient = async (patientId, psychologistId) => {
     targetId: patientId
   });
 
+  await safelySyncSearchEntry(() =>
+    syncPatientSearchEntry(patientId, psychologistId, {
+      ...currentData,
+      status: 'active'
+    })
+  );
+
   return true;
 };
 
 // This is intentionally a reversible soft-delete. Clinical records are not
 // physically purged from a browser action.
 export const deletePatient = async (patientId, psychologistId) => {
-  const { patientRef } = await getOwnedPatientSnapshot(patientId, psychologistId);
+  const { patientRef, data: currentData } = await getOwnedPatientSnapshot(
+    patientId,
+    psychologistId
+  );
   await updateDoc(patientRef, {
     deletedAt: serverTimestamp(),
     status: 'deleted',
@@ -165,6 +206,13 @@ export const deletePatient = async (patientId, psychologistId) => {
     target: 'patient',
     targetId: patientId
   });
+
+  await safelySyncSearchEntry(() =>
+    syncPatientSearchEntry(patientId, psychologistId, {
+      ...currentData,
+      status: 'deleted'
+    })
+  );
 
   return true;
 };
@@ -209,6 +257,10 @@ export const duplicatePatient = async (patientId, psychologistId) => {
     targetId: docRef.id,
     details: { originalId: patientId }
   });
+
+  await safelySyncSearchEntry(() =>
+    syncPatientSearchEntry(docRef.id, psychologistId, newData)
+  );
 
   return { id: docRef.id, ...newData };
 };
