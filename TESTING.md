@@ -2,86 +2,142 @@
 
 ## Quality strategy
 
-PsiNote handles potentially sensitive psychological-service records. Tests are therefore organized around professional workflow reliability, authorization, privacy, accessibility and recovery rather than only component rendering.
+PsiNote handles potentially sensitive psychological-service records. Automated quality therefore prioritizes authorization, privacy, professional-workflow reliability, accessibility, mobile usability and regression detection.
+
+No automated test may depend on real patient data or production clinical narrative.
+
+## Reproducible install
+
+CI uses:
+
+`npm ci`
+
+`package-lock.json` is versioned and must remain synchronized with `package.json`.
 
 ## Current automated gates
 
 ### Dependency security
+
 `npm run security:dependencies`
 
 Fails on moderate, high or critical known dependency vulnerabilities.
 
 ### Static security regression guard
+
 `npm run security:check`
 
-Blocks known unsafe patterns in the browser bundle, including:
+Blocks known unsafe browser patterns, including:
 - hard-coded privileged accounts;
 - public Supabase document URL generation;
 - direct destructive Firestore deletes;
 - direct destructive Firebase Storage deletes;
 - destructive Supabase Storage removal;
-- clinical narrative fields referenced by either the global-search reader or search-index writer.
+- clinical narrative fields referenced by the global-search reader/index writer.
+
+### Lint
+
+`npm run lint`
+
+Uses ESLint flat configuration and fails on dead bindings, undefined variables and other recommended JavaScript correctness rules.
+
+Rules are not globally disabled to turn CI green.
+
+### Typecheck
+
+`npm run typecheck`
+
+Uses TypeScript `checkJs` against the existing JavaScript/JSX application with shared JSDoc domain contracts.
+
+This is the incremental path toward stronger typing; it does not require a destructive whole-application TypeScript rewrite.
 
 ### Domain unit tests
+
 `npm run test:unit`
 
 Current pure-domain coverage includes:
 - weekly/biweekly/monthly appointment recurrence;
-- end-of-month clamping, including leap years;
-- recurrence validation limits;
+- month-end/leap-year clamping;
+- recurrence limits;
 - reschedule eligibility and terminal appointment states;
-- Monday-to-Sunday week boundaries;
-- month calendar grids;
-- day/week/month/list query ranges;
-- calendar month navigation;
+- calendar ranges and navigation;
 - document template availability/version lookup;
-- conditional declaration validation;
-- declaration objective rendering safeguards;
+- conditional Declaration validation;
 - psychological report structure;
-- restricted-template emission denial;
-- accent/case/whitespace search normalization;
-- command-palette keyword matching.
+- restricted-template issue denial;
+- search normalization and command matching.
 
 ### Firebase Security Rules
+
 `npm run test:rules`
 
-Runs Firestore and Storage emulators using a demo project ID and tests:
+Runs Firestore and Storage emulators and covers:
 - unauthenticated denial;
-- tenant ownership;
-- cross-tenant IDOR/BOLA denial;
+- tenant ownership and cross-tenant IDOR/BOLA denial;
 - blocked-user denial;
-- ownership and patient-link immutability;
-- creation metadata preservation;
+- ownership/patient-link immutability;
 - user role escalation denial;
-- admin account-profile access without clinical-record bypass;
-- append-only minimized activity events;
+- minimized append-only activity events;
 - clinical hard-delete denial;
-- private file access;
-- MIME validation;
-- empty-file rejection;
+- private file access and MIME/size controls;
 - storage overwrite/delete denial;
-- session revision sequencing;
-- finalized-session silent edit denial;
-- immutable version append/read boundaries;
-- version snapshot/parent consistency;
-- immutable legacy embedded history;
-- document draft tenant isolation;
-- immutable draft template/patient ownership;
-- paired draft -> issued document transition;
+- session revision/lifecycle integrity;
+- immutable session versions;
+- appointment lifecycle/session linkage;
+- document draft -> issued lifecycle;
 - immutable issued document metadata;
-- private attachment creation and cross-patient denial;
-- search-entry tenant isolation;
-- source-title/searchability integrity;
-- clinical-field smuggling denial;
-- source-bound session/document/draft metadata;
-- search-entry entity identity immutability.
-
-The tests use `@firebase/rules-unit-testing`, which supports mock authenticated contexts against the Emulator Suite without contacting production.
+- privacy-safe search-entry integrity.
 
 ### Production build
+
 `npm run build`
 
-Validates that the current frontend compiles with production settings.
+Validates the production Vite bundle.
+
+### Browser E2E, accessibility and mobile
+
+`npm run test:e2e:emulated`
+
+Runs Chromium against Firebase Auth/Firestore/Storage emulators using synthetic accounts.
+
+Current coverage includes:
+- unauthenticated private-route redirect;
+- registration/login/logout;
+- password-reset request without real email delivery;
+- ordinary-user admin-route denial;
+- command palette keyboard/navigation behavior;
+- automated Axe checks on critical surfaces;
+- responsive usability at 375px, 390px and 430px;
+- horizontal page-shell overflow checks;
+- critical actions remaining reachable on mobile.
+
+Axe automation is a gate, not a substitute for manual screen-reader/keyboard review.
+
+### Visual regression
+
+`npm run test:visual:emulated`
+
+Critical surfaces are rendered on Linux Chromium under a deterministic visual environment.
+
+Current reviewed baselines:
+- login shell;
+- daily command center;
+- documents center.
+
+The test compares SHA-256 of the actual screenshot against a reviewed Linux baseline and attaches the current PNG on failure.
+
+A baseline hash must never be changed merely to make CI pass; the rendered artifact must be inspected first.
+
+### Production smoke
+
+`npm run test:production-smoke`
+
+Current public smoke verifies:
+- deployed production URL responds successfully;
+- PsiNote shell/title loads;
+- the public auth surface renders;
+- uncaught page errors are absent.
+
+Authenticated production smoke is intentionally not performed with real professional credentials in CI.
 
 ## Local validation
 
@@ -89,64 +145,38 @@ Run:
 
 `npm run validate`
 
-This currently executes dependency audit, static security checks, domain unit tests, Firebase Rules tests and production build.
+This executes:
+1. dependency audit;
+2. static security guard;
+3. lint;
+4. typecheck;
+5. domain unit tests;
+6. Firebase Rules tests;
+7. production build.
 
-The Firebase emulator requires Java. CI uses Java 21.
+Browser gates require Chromium and Java/Firebase emulators and are run separately.
 
-## Required test layers still to add
+## Test layers still to expand
 
-### Unit still to add
-- patient/session payload schemas;
-- autosave state machine;
-- retention eligibility policy.
-
-### Integration
-- appointment -> session -> finalized record linkage;
-- patient archive/reactivation;
-- end-to-end document draft + PDF upload + atomic issue metadata;
-- version history;
-- global search query boundaries.
-
-### End-to-end
-Use Playwright for:
-- registration/login/password reset;
-- private-route behavior;
-- patient CRUD lifecycle;
-- session create/autosave/reload/finalize/reopen;
-- agenda status transitions;
-- document upload/access;
-- admin route denial;
-- expired session;
-- manipulated URL/ID;
-- mobile viewport matrix.
-
-### Accessibility
-WCAG 2.2 AA checks:
-- keyboard navigation;
-- focus visibility/order;
-- accessible names/labels;
-- dialog semantics;
-- contrast;
-- 200% zoom;
-- reduced motion;
-- touch target size.
-
-### Visual regression
-Baseline only after the design-system migration is stable. Snapshot changes must be reviewed, never accepted merely to turn the gate green.
-
-### Production smoke
-After deployment:
-- public auth page loads;
-- login succeeds for test account;
-- authenticated dashboard loads;
-- one tenant-scoped read succeeds;
-- cross-tenant fixture remains denied;
-- no console error containing personal/clinical data.
+The current Phase 7 gate is meaningful but not exhaustive. Future additions should include:
+- patient create/edit/archive/reactivate E2E;
+- session autosave/offline/reload/concurrency E2E;
+- appointment -> session -> finalized-record integration;
+- generated document draft -> PDF -> private Storage -> immutable issue integration;
+- invalid/oversized upload browser flows;
+- expired-token behavior;
+- manipulated source IDs inside authenticated E2E;
+- keyboard-only full workflow;
+- screen-reader manual protocol;
+- zoom 200% manual/automated layout checks;
+- tested backup/restore exercise.
 
 ## Security test principles
 
 A UI-hidden action is not considered secured.
 
-Authorization behavior must be tested at the database/storage boundary. IDs, routes and links are always treated as attacker-controlled.
+Authorization must be proven at the database/storage boundary.
 
-Tests must never use production patient data or real clinical narrative.
+IDs, URLs and routes are attacker-controlled.
+
+Clinical narrative is excluded from technical logs, search indexes and synthetic test fixtures.
