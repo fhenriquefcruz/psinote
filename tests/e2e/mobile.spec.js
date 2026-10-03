@@ -20,7 +20,7 @@ test('core professional surfaces remain usable on small mobile widths', async ({
   await assertNoPageHorizontalOverflow(page);
 
   await page.goto('documents');
-  await expect(page.getByRole('heading', { name: 'Documentos' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Documentos', exact: true })).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'Novo documento' })
   ).toBeVisible();
