@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  FilePenLine,
+  ChevronRight,
+  Calendar,
+  CheckCircle,
+  Clock,
+  Edit,
   Plus,
   Users
 } from 'lucide-react';
@@ -188,7 +188,7 @@ export default function Dashboard() {
                 <div>
                   <h2>{nextAppointment.patientName || patientNames[nextAppointment.patientId] || 'Paciente'}</h2>
                   <div className={styles.nextMeta}>
-                    <Clock3 size={16} aria-hidden="true" />
+                    <Clock size={16} aria-hidden="true" />
                     <span>{nextAppointment.time || 'Horário não informado'}</span>
                     <span>•</span>
                     <span>{nextAppointment.duration || 50} min</span>
@@ -205,7 +205,7 @@ export default function Dashboard() {
                   to={'/sessions/new?patientId=' + nextAppointment.patientId + '&appointmentId=' + nextAppointment.id}
                 >
                   Abrir registro
-                  <ArrowRight size={17} aria-hidden="true" />
+                  <ChevronRight size={17} aria-hidden="true" />
                 </Link>
                 <Link
                   className="button button-secondary"
@@ -217,7 +217,7 @@ export default function Dashboard() {
             </>
           ) : (
             <div className={styles.calmState}>
-              <CheckCircle2 size={24} aria-hidden="true" />
+              <CheckCircle size={24} aria-hidden="true" />
               <div>
                 <strong>Nenhum atendimento pendente para hoje.</strong>
                 <p>Você pode revisar registros ou organizar a agenda.</p>
@@ -286,7 +286,7 @@ export default function Dashboard() {
                     className="button button-ghost"
                   >
                     Registrar
-                    <ArrowRight size={16} aria-hidden="true" />
+                    <ChevronRight size={16} aria-hidden="true" />
                   </Link>
                 </div>
               ))
@@ -317,7 +317,7 @@ export default function Dashboard() {
                   </div>
                   <Link to={'/sessions/' + session.id} className="button button-ghost">
                     Continuar
-                    <ArrowRight size={16} aria-hidden="true" />
+                    <ChevronRight size={16} aria-hidden="true" />
                   </Link>
                 </div>
               ))
@@ -342,7 +342,7 @@ export default function Dashboard() {
             ) : (
               recentFinalized.map((session) => (
                 <Link key={session.id} to={'/sessions/' + session.id} className={styles.recentRow}>
-                  <FilePenLine size={17} aria-hidden="true" />
+                  <Edit size={17} aria-hidden="true" />
                   <div>
                     <strong>{session.patientName || patientNames[session.patientId] || 'Paciente'}</strong>
                     <span>{session.mainTheme || 'Registro finalizado'}</span>
@@ -361,7 +361,7 @@ export default function Dashboard() {
 
       <section className={styles.operationalSummary} aria-label="Resumo operacional">
         <div>
-          <CalendarDays size={17} aria-hidden="true" />
+          <Calendar size={17} aria-hidden="true" />
           <strong>{todayAppointments.length}</strong>
           <span>na agenda hoje</span>
         </div>
@@ -371,7 +371,7 @@ export default function Dashboard() {
           <span>pacientes ativos</span>
         </div>
         <div>
-          <FilePenLine size={17} aria-hidden="true" />
+          <Edit size={17} aria-hidden="true" />
           <strong>{draftSessions.length}</strong>
           <span>rascunhos abertos</span>
         </div>
