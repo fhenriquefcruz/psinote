@@ -10,7 +10,8 @@ import {
   doc,
   getDoc,
   setDoc,
-  updateDoc
+  updateDoc,
+  writeBatch
 } from 'firebase/firestore';
 
 const PROJECT_ID = 'demo-psinote-rules';
@@ -629,6 +630,251 @@ describe('Appointment lifecycle integrity', () => {
         updatedBy: 'alice',
         updatedAt: '2026-10-03T05:00:00.000Z'
       })
+    );
+  });
+});
+
+
+describe('Document draft and immutable issue lifecycle', () => {
+  const draftPayload = (overrides = {}) => ({
+    psychologistId: 'alice',
+    patientId: 'alice-patient',
+    patientName: 'Alice patient',
+    templateId: 'system.declaration',
+    templateVersion: 1,
+    templateType: 'declaration',
+    templateFamily: 'psychological',
+    values: {
+      purpose: 'Comprovação de comparecimento',
+      place: 'Campo Grande - MS'
+    },
+    status: 'draft',
+    familyId: 'family-1',
+    issueVersion: 1,
+    supersedesDocumentId: null,
+    issuedDocumentId: null,
+    issuedAt: null,
+    createdAt: '2026-10-03T00:00:00.000Z',
+    updatedAt: '2026-10-03T00:00:00.000Z',
+    createdBy: 'alice',
+    updatedBy: 'alice',
+    ...overrides
+  });
+
+  const issuedDocumentPayload = (overrides = {}) => ({
+    psychologistId: 'alice',
+    patientId: 'alice-patient',
+    name: 'Declaracao.pdf',
+    storageProvider: 'firebase',
+    storagePath: 'users/alice/documents/alice-patient/issued.pdf',
+    fileType: 'application/pdf',
+    fileSize: 2048,
+    sha256: 'a'.repeat(64),
+    uploadedAt: '2026-10-03T01:00:00.000Z',
+    createdAt: '2026-10-03T01:00:00.000Z',
+    updatedAt: '2026-10-03T01:00:00.000Z',
+    uploadedBy: 'alice',
+    createdBy: 'alice',
+    updatedBy: 'alice',
+    kind: 'generated',
+    status: 'issued',
+    category: 'psychological_document',
+    version: 1,
+    familyId: 'family-1',
+    templateId: 'system.declaration',
+    templateVersion: 1,
+    templateType: 'declaration',
+    draftId: 'draft-1',
+    supersedesDocumentId: null,
+    issuedAt: '2026-10-03T01:00:00.000Z',
+    issuedBy: 'alice',
+    ...overrides
+  });
+
+  const attachmentPayload = (overrides = {}) => ({
+    psychologistId: 'alice',
+    patientId: 'alice-patient',
+    name: 'arquivo.pdf',
+    storageProvider: 'firebase',
+    storagePath: 'users/alice/documents/alice-patient/arquivo.pdf',
+    fileType: 'application/pdf',
+    fileSize: 1024,
+    sha256: 'b'.repeat(64),
+    uploadedAt: '2026-10-03T01:00:00.000Z',
+    createdAt: '2026-10-03T01:00:00.000Z',
+    updatedAt: '2026-10-03T01:00:00.000Z',
+    uploadedBy: 'alice',
+    createdBy: 'alice',
+    updatedBy: 'alice',
+    kind: 'attachment',
+    status: 'stored',
+    category: 'other',
+    version: 1,
+    familyId: null,
+    templateId: null,
+    templateVersion: null,
+    draftId: null,
+    supersedesDocumentId: null,
+    issuedAt: null,
+    ...overrides
+  });
+
+  test('owner can create and edit own draft while another tenant cannot read it', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+    const bob = testEnv.authenticatedContext('bob').firestore();
+    const ref = doc(alice, 'document_drafts/draft-1');
+
+    await assertSucceeds(setDoc(ref, draftPayload()));
+    await assertSucceeds(
+      updateDoc(ref, {
+        values: {
+          purpose: 'Finalidade atualizada',
+          place: 'Campo Grande - MS'
+        },
+        updatedAt: '2026-10-03T00:30:00.000Z',
+        updatedBy: 'alice'
+      })
+    );
+
+    await assertFails(getDoc(doc(bob, 'document_drafts/draft-1')));
+  });
+
+  test('draft cannot forge another patient, template or owner', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+    const ref = doc(alice, 'document_drafts/draft-1');
+
+    await assertSucceeds(setDoc(ref, draftPayload()));
+
+    await assertFails(
+      updateDoc(ref, {
+        patientId: 'someone-else',
+        updatedAt: '2026-10-03T00:30:00.000Z',
+        updatedBy: 'alice'
+      })
+    );
+
+    await assertFails(
+      updateDoc(ref, {
+        templateVersion: 99,
+        updatedAt: '2026-10-03T00:30:00.000Z',
+        updatedBy: 'alice'
+      })
+    );
+
+    await assertFails(
+      setDoc(
+        doc(alice, 'document_drafts/forged-owner'),
+        draftPayload({ psychologistId: 'bob' })
+      )
+    );
+  });
+
+  test('generated issued document requires paired draft transition in the same batch', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+    const draftRef = doc(alice, 'document_drafts/draft-1');
+    const documentRef = doc(alice, 'documents/issued-1');
+
+    await assertSucceeds(setDoc(draftRef, draftPayload()));
+
+    await assertFails(
+      setDoc(documentRef, issuedDocumentPayload())
+    );
+
+    const batch = writeBatch(alice);
+    batch.set(documentRef, issuedDocumentPayload());
+    batch.update(draftRef, {
+      status: 'issued',
+      issuedDocumentId: 'issued-1',
+      issuedAt: '2026-10-03T01:00:00.000Z',
+      updatedAt: '2026-10-03T01:00:00.000Z',
+      updatedBy: 'alice'
+    });
+
+    await assertSucceeds(batch.commit());
+
+    await assertSucceeds(getDoc(documentRef));
+  });
+
+  test('issued draft and issued document are immutable in browser clients', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(
+        doc(db, 'document_drafts/draft-1'),
+        draftPayload({
+          status: 'issued',
+          issuedDocumentId: 'issued-1',
+          issuedAt: '2026-10-03T01:00:00.000Z'
+        })
+      );
+      await setDoc(
+        doc(db, 'documents/issued-1'),
+        issuedDocumentPayload()
+      );
+    });
+
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertFails(
+      updateDoc(doc(alice, 'document_drafts/draft-1'), {
+        values: { purpose: 'Reescrita posterior' },
+        updatedAt: '2026-10-03T02:00:00.000Z',
+        updatedBy: 'alice'
+      })
+    );
+
+    await assertFails(
+      updateDoc(doc(alice, 'documents/issued-1'), {
+        name: 'alterado.pdf',
+        updatedAt: '2026-10-03T02:00:00.000Z',
+        updatedBy: 'alice'
+      })
+    );
+
+    await assertFails(
+      deleteDoc(doc(alice, 'documents/issued-1'))
+    );
+  });
+
+  test('ordinary private attachment remains supported but metadata is immutable', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+    const ref = doc(alice, 'documents/attachment-1');
+
+    await assertSucceeds(setDoc(ref, attachmentPayload()));
+    await assertFails(
+      updateDoc(ref, {
+        name: 'renamed.pdf',
+        updatedAt: '2026-10-03T02:00:00.000Z',
+        updatedBy: 'alice'
+      })
+    );
+  });
+
+  test('document creation cannot link to another tenant patient', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'patients/bob-patient'),
+        clinicalRecord('bob', {
+          patientId: undefined,
+          name: 'Bob patient',
+          status: 'active'
+        })
+      );
+    });
+
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    await assertFails(
+      setDoc(
+        doc(alice, 'documents/cross-patient'),
+        attachmentPayload({ patientId: 'bob-patient' })
+      )
+    );
+
+    await assertFails(
+      setDoc(
+        doc(alice, 'document_drafts/cross-patient'),
+        draftPayload({ patientId: 'bob-patient' })
+      )
     );
   });
 });
