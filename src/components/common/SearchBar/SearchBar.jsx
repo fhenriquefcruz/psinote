@@ -272,6 +272,7 @@ export default function SearchBar() {
                   activeIndex={activeIndex}
                   startIndex={runningIndex}
                   onSelect={selectEntry}
+                  onActive={setActiveIndex}
                 />
               )}
               {(() => {
@@ -294,6 +295,7 @@ export default function SearchBar() {
                     activeIndex={activeIndex}
                     startIndex={start}
                     onSelect={selectEntry}
+                    onActive={setActiveIndex}
                   />
                 );
               })}
@@ -322,7 +324,8 @@ function ResultGroup({
   items,
   activeIndex,
   startIndex,
-  onSelect
+  onSelect,
+  onActive
 }) {
   return (
     <section className={styles.group}>
@@ -338,7 +341,8 @@ function ResultGroup({
               key={item.type + '-' + item.id}
               type="button"
               className={active ? styles.resultActive : styles.result}
-              onMouseEnter={() => {}}
+              onMouseEnter={() => onActive(index)}
+              onFocus={() => onActive(index)}
               onClick={() => onSelect(item)}
             >
               <span className={styles.resultIcon}>
