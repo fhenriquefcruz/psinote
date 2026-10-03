@@ -615,12 +615,26 @@ service cloud.firestore {
     }
 
     function validSearchEntry() {
+      let entityType = request.resource.data.entityType;
+
       return validSearchEntryShape()
         && (
-          validPatientSearchEntry()
-          || validSessionSearchEntry()
-          || validDocumentSearchEntry()
-          || validDraftSearchEntry()
+          (
+            entityType == 'patient'
+            && validPatientSearchEntry()
+          )
+          || (
+            entityType == 'session'
+            && validSessionSearchEntry()
+          )
+          || (
+            entityType == 'document'
+            && validDocumentSearchEntry()
+          )
+          || (
+            entityType == 'draft'
+            && validDraftSearchEntry()
+          )
         );
     }
 
