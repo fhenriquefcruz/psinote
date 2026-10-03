@@ -324,6 +324,9 @@ export const rescheduleAppointment = async (
     await getOwnedAppointmentSnapshot(appointmentId, psychologistId);
 
   if (!currentData) throw new Error('Agendamento não encontrado.');
+  if (!['scheduled', 'confirmed', 'canceled', 'missed'].includes(currentData.status)) {
+    throw new Error('Este atendimento não pode ser remarcado.');
+  }
 
   const newAppointmentRef = doc(collection(db, COLLECTION));
   const batch = writeBatch(db);
