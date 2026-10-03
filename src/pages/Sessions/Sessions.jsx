@@ -4,14 +4,8 @@ import { Calendar, CheckCircle, Edit, Plus, Search } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { getSessions } from '../../services/sessionService';
 import { getPatients } from '../../services/patientService';
+import { parseDateValue } from '../../utils/date';
 import styles from './Sessions.module.css';
-
-const toDate = (value) => {
-  if (!value) return null;
-  if (typeof value?.toDate === 'function') return value.toDate();
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
 
 const statusMeta = {
   draft: { label: 'Rascunho', className: 'badge-warning' },
@@ -138,7 +132,7 @@ export default function Sessions() {
           </div>
         ) : (
           filtered.map((session) => {
-            const date = toDate(session.date);
+            const date = parseDateValue(session.date);
             const meta = statusMeta[session.status] || statusMeta.draft;
             const patientName =
               session.patientName || patientNames[session.patientId] || 'Paciente';
