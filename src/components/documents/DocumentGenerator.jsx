@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { getPatientById } from '../../services/patientService';
-import { DOCUMENT_TYPES, DOCUMENT_LABELS, getTemplate, COMMON_FIELDS } from './DocumentTemplates';
+import { DOCUMENT_TYPES, DOCUMENT_LABELS, getTemplate } from './DocumentTemplates';
 import { generateDocumentPDF } from '../../services/documentGeneratorService';
 import { toast } from 'react-toastify';
 import { Download, Eye, Save, X } from 'lucide-react';
@@ -18,9 +18,9 @@ export default function DocumentGenerator({ patientId, onClose }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (patientId) {
+    if (patientId && user) {
       const loadPatient = async () => {
-        const p = await getPatientById(patientId);
+        const p = await getPatientById(patientId, user.uid);
         setPatient(p);
         // Pré-preenche campos com dados do paciente
         const template = getTemplate(docType);
@@ -37,7 +37,7 @@ export default function DocumentGenerator({ patientId, onClose }) {
       };
       loadPatient();
     }
-  }, [patientId, docType]);
+  }, [patientId, docType, user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
