@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { getDocuments, uploadDocument, deleteDocument } from '../../services/documentService';
+import { getDocuments, uploadDocument, deleteDocument, getDocumentAccessUrl } from '../../services/documentService';
 import { getPatients } from '../../services/patientService';
 import { toast } from 'react-toastify';
 import { Upload, File, Trash2, Download, FolderOpen, Search, Plus, FileText } from 'lucide-react';
@@ -74,6 +74,23 @@ export default function Documents() {
     } finally {
       setUploading(false);
       e.target.value = '';
+    }
+  };
+
+  const handleOpenDocument = async (documentItem) => {
+    try {
+      const { url, revokeAfterUse } = await getDocumentAccessUrl(documentItem, user.uid);
+      const opened = window.open(url, '_blank', 'noopener,noreferrer');
+
+      if (!opened) {
+        toast.info('Permita pop-ups para visualizar o documento.');
+      }
+
+      if (revokeAfterUse) {
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
+    } catch (error) {
+      toast.error('Não foi possível abrir o documento: ' + error.message);
     }
   };
 
@@ -362,22 +379,21 @@ export default function Documents() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.3rem' }}>
-                  <a
-                    href={doc.fileURL}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => handleOpenDocument(doc)}
                     style={{
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
                       color: 'var(--primary)',
-                      padding: '0.2rem 0.4rem',
-                      textDecoration: 'none'
+                      padding: '0.2rem 0.4rem'
                     }}
-                    title="Download"
+                    aria-label={`Abrir documento ${doc.name}`}
+                    title="Abrir documento"
                   >
-                    <Download size={16} />
-                  </a>
+                    <Download size={16} aria-hidden="true" />
+                  </button>
                   <button
                     onClick={() => handleDelete(doc.id)}
                     style={{
