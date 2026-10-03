@@ -729,7 +729,7 @@ function AppointmentCard({ appointment, actions, compact = false }) {
   const modality = MODALITY_META[appointment.modality] || MODALITY_META.in_person;
   const ModalityIcon = modality.icon;
   const isOpen = ['scheduled', 'confirmed'].includes(appointment.status);
-  const canReschedule = appointment.status !== 'rescheduled';
+  const canReschedule = ['scheduled', 'confirmed', 'canceled', 'missed'].includes(appointment.status);
 
   return (
     <article className={compact ? styles.appointmentCompact : styles.appointmentCard}>
