@@ -21,6 +21,19 @@ Blocks known unsafe patterns in the browser bundle, including:
 - direct destructive Firebase Storage deletes;
 - destructive Supabase Storage removal.
 
+### Domain unit tests
+`npm run test:unit`
+
+Current pure-domain coverage includes:
+- weekly/biweekly/monthly appointment recurrence;
+- end-of-month clamping, including leap years;
+- recurrence validation limits;
+- reschedule eligibility and terminal appointment states;
+- Monday-to-Sunday week boundaries;
+- month calendar grids;
+- day/week/month/list query ranges;
+- calendar month navigation.
+
 ### Firebase Security Rules
 `npm run test:rules`
 
@@ -58,15 +71,13 @@ Run:
 
 `npm run validate`
 
-This currently executes dependency audit, static security checks, Firebase Rules tests and production build.
+This currently executes dependency audit, static security checks, domain unit tests, Firebase Rules tests and production build.
 
 The Firebase emulator requires Java. CI uses Java 21.
 
 ## Required test layers still to add
 
-### Unit
-- domain status transitions;
-- date/time normalization;
+### Unit still to add
 - document-template validation;
 - patient/session payload schemas;
 - autosave state machine;
