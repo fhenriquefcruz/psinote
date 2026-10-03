@@ -44,6 +44,12 @@ jobs:
       - name: Security baseline
         run: npm run security:check
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Domain unit tests
         run: npm run test:unit
 
