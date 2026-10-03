@@ -1,43 +1,63 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import { getDocuments, uploadDocument, getDocumentAccessUrl } from '../../services/documentService';
-import { getPatients } from '../../services/patientService';
-import { toast } from 'react-toastify';
-import { Upload, File, Download, FolderOpen, Search, Plus, FileText } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  Download,
+  File,
+  FileCheck2,
+  FileClock,
+  FilePlus2,
+  FolderOpen,
+  LockKeyhole,
+  Upload
+} from 'lucide-react';
+import { toast } from 'react-toastify';
+import { useAuth } from '../../hooks/useAuth';
+import {
+  getDocumentAccessUrl,
+  getDocuments,
+  uploadDocument
+} from '../../services/documentService';
+import { getDocumentDrafts } from '../../services/documentDraftService';
+import { getPatients } from '../../services/patientService';
+import { getDocumentTemplate } from '../../domain/documentTemplates';
+import styles from './Documents.module.css';
 
 const CATEGORIES = [
-  { value: 'contract', label: '📄 Contratos' },
-  { value: 'anamnesis', label: '📋 Anamnese' },
-  { value: 'terms', label: '📜 Termos' },
-  { value: 'reports', label: '📊 Relatórios' },
-  { value: 'other', label: '📁 Outros' }
+  { value: 'administrative', label: 'Administrativo' },
+  { value: 'consent', label: 'Consentimento / ciência' },
+  { value: 'reference', label: 'Material de referência' },
+  { value: 'other', label: 'Outro' }
 ];
 
 export default function Documents() {
   const { user } = useAuth();
+  const fileInputRef = useRef(null);
   const [documents, setDocuments] = useState([]);
+  const [drafts, setDrafts] = useState([]);
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [filter, setFilter] = useState('all');
-  const [selectedPatient, setSelectedPatient] = useState('');
+  const [patientFilter, setPatientFilter] = useState('');
+  const [kindFilter, setKindFilter] = useState('all');
+  const [uploadPatientId, setUploadPatientId] = useState('');
   const [category, setCategory] = useState('other');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredPatients, setFilteredPatients] = useState([]);
 
   const loadData = async () => {
+    if (!user) return;
+
+    setLoading(true);
     try {
-      const [docs, pats] = await Promise.all([
+      const [docs, pendingDrafts, patientList] = await Promise.all([
         getDocuments(user.uid),
+        getDocumentDrafts(user.uid),
         getPatients(user.uid)
       ]);
+
       setDocuments(docs);
-      setPatients(pats);
-      setFilteredPatients(pats.filter(p => p.status === 'active'));
+      setDrafts(pendingDrafts);
+      setPatients(patientList);
     } catch (error) {
-      console.error('Erro ao carregar documentos:', error);
-      toast.error('Erro ao carregar documentos');
+      toast.error('Não foi possível carregar os documentos: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -47,41 +67,52 @@ export default function Documents() {
     loadData();
   }, [user]);
 
-  useEffect(() => {
-    if (searchTerm.length >= 2) {
-      const filtered = patients.filter(p => 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) && 
-        p.status === 'active'
-      );
-      setFilteredPatients(filtered);
-    } else {
-      setFilteredPatients(patients.filter(p => p.status === 'active'));
-    }
-  }, [searchTerm, patients]);
+  const patientName = (patientId) =>
+    patients.find((item) => item.id === patientId)?.name
+    || 'Paciente não encontrado';
 
-  const handleUpload = async (e) => {
-    const file = e.target.files[0];
+  const filteredDocuments = useMemo(
+    () =>
+      documents.filter((item) => {
+        if (patientFilter && item.patientId !== patientFilter) return false;
+        if (kindFilter === 'issued' && item.status !== 'issued') return false;
+        if (kindFilter === 'attachment' && item.kind === 'generated') return false;
+        return true;
+      }),
+    [documents, kindFilter, patientFilter]
+  );
+
+  const handleUpload = async (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
+
     setUploading(true);
     try {
-      const name = prompt('Nome do documento:', file.name);
-      if (!name) return;
-      await uploadDocument(user.uid, file, selectedPatient || null, category, name);
-      toast.success('Documento enviado com sucesso!');
+      await uploadDocument(
+        user.uid,
+        file,
+        uploadPatientId || null,
+        category,
+        file.name
+      );
+      toast.success('Arquivo armazenado com segurança.');
       await loadData();
     } catch (error) {
-      toast.error('Erro ao enviar documento: ' + error.message);
+      toast.error('Não foi possível armazenar o arquivo: ' + error.message);
     } finally {
       setUploading(false);
-      e.target.value = '';
+      event.target.value = '';
     }
   };
 
   const handleOpenDocument = async (documentItem) => {
     try {
-      const { url, revokeAfterUse } = await getDocumentAccessUrl(documentItem, user.uid);
-      const opened = window.open(url, '_blank', 'noopener,noreferrer');
+      const { url, revokeAfterUse } = await getDocumentAccessUrl(
+        documentItem,
+        user.uid
+      );
 
+      const opened = window.open(url, '_blank', 'noopener,noreferrer');
       if (!opened) {
         toast.info('Permita pop-ups para visualizar o documento.');
       }
@@ -94,302 +125,262 @@ export default function Documents() {
     }
   };
 
-
-  const filteredDocs = documents.filter(doc => {
-    if (filter === 'patient' && !doc.patientId) return false;
-    if (filter === 'general' && doc.patientId) return false;
-    if (selectedPatient && doc.patientId !== selectedPatient) return false;
-    return true;
-  });
-
-  const getPatientName = (patientId) => {
-    const patient = patients.find(p => p.id === patientId);
-    return patient?.name || 'Paciente não encontrado';
-  };
-
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Carregando documentos...</div>;
+    return <main className="page-shell">Carregando documentos...</main>;
   }
 
+  const issuedCount = documents.filter((item) => item.status === 'issued').length;
+  const attachmentCount = documents.length - issuedCount;
+
   return (
-    <div style={{ padding: '1.5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+    <main className="page-shell">
+      <header className="page-header">
         <div>
-          <h1 style={{ margin: 0 }}>📁 Documentos</h1>
-          <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
-            {documents.length} documentos armazenados
+          <div className="section-kicker">Documentação</div>
+          <h1 className="page-title">Documentos</h1>
+          <p className="page-subtitle">
+            Rascunhos, emissões imutáveis e arquivos privados em uma única área.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <Link
-            to="/documents/generate"
-            style={{
-              padding: '0.5rem 1rem',
-              background: '#8B5CF6',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              fontWeight: 500,
-              textDecoration: 'none',
-              transition: 'var(--transition)'
-            }}
-          >
-            <FileText size={18} /> Gerar Documento
-          </Link>
-        </div>
-      </div>
 
-      {/* Upload */}
-      <div style={{ background: 'var(--bg-primary)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '0.8rem', alignItems: 'end', flexWrap: 'wrap' }}>
-          <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>Paciente</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="text"
-                placeholder="Digite o nome do paciente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-color)',
-                  background: 'var(--bg-primary)',
-                  color: 'var(--text-primary)'
-                }}
-              />
-              <Search size={16} style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              {searchTerm.length >= 2 && filteredPatients.length > 0 && (
-                <div style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 4px)',
-                  left: 0,
-                  right: 0,
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-sm)',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  zIndex: 10,
-                  boxShadow: 'var(--shadow-md)'
-                }}>
-                  {filteredPatients.map(p => (
-                    <div
-                      key={p.id}
-                      onClick={() => {
-                        setSelectedPatient(p.id);
-                        setSearchTerm(p.name);
-                        setFilteredPatients([]);
-                      }}
-                      style={{
-                        padding: '0.5rem',
-                        cursor: 'pointer',
-                        borderBottom: '1px solid var(--border-color)',
-                        transition: 'var(--transition)'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      {p.name}
-                    </div>
-                  ))}
-                </div>
-              )}
+        <Link to="/documents/generate" className="button button-primary">
+          <FilePlus2 size={18} aria-hidden="true" />
+          Novo documento
+        </Link>
+      </header>
+
+      <section className={styles.metrics} aria-label="Resumo de documentos">
+        <Metric
+          icon={FileClock}
+          label="Rascunhos"
+          value={drafts.length}
+          description="Ainda editáveis"
+        />
+        <Metric
+          icon={FileCheck2}
+          label="Emitidos"
+          value={issuedCount}
+          description="Versões imutáveis"
+        />
+        <Metric
+          icon={File}
+          label="Anexos"
+          value={attachmentCount}
+          description="Arquivos armazenados"
+        />
+      </section>
+
+      {drafts.length > 0 && (
+        <section className="surface">
+          <div className="surface-header">
+            <div>
+              <div className="section-kicker">Pendências</div>
+              <h2 className="section-title">Rascunhos em andamento</h2>
             </div>
           </div>
+
+          <div className={styles.draftList}>
+            {drafts.map((draft) => {
+              const template = getDocumentTemplate(
+                draft.templateId,
+                draft.templateVersion
+              );
+
+              return (
+                <article key={draft.id} className={styles.draftCard}>
+                  <div className={styles.documentIcon}>
+                    <FileClock size={19} aria-hidden="true" />
+                  </div>
+                  <div className={styles.documentInfo}>
+                    <strong>{template?.label || draft.templateType || 'Documento'}</strong>
+                    <span>
+                      {draft.patientId ? patientName(draft.patientId) : 'Sem paciente'}
+                      {' • '}
+                      template v{draft.templateVersion}
+                    </span>
+                  </div>
+                  <Link
+                    to={'/documents/generate?draftId=' + draft.id}
+                    className="button button-secondary"
+                  >
+                    Continuar
+                  </Link>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <section className={'surface ' + styles.uploadSection}>
+        <div className="surface-header">
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>Categoria</label>
+            <div className="section-kicker">Arquivos externos</div>
+            <h2 className="section-title">Armazenar anexo privado</h2>
+          </div>
+        </div>
+
+        <div className={styles.uploadGrid}>
+          <div className="field">
+            <label className="field-label" htmlFor="upload-patient">Paciente</label>
             <select
-              value={category}
-              onChange={e => setCategory(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)'
-              }}
+              id="upload-patient"
+              className="select"
+              value={uploadPatientId}
+              onChange={(event) => setUploadPatientId(event.target.value)}
             >
-              {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              <option value="">Documento geral</option>
+              {patients.map((patient) => (
+                <option key={patient.id} value={patient.id}>
+                  {patient.name}
+                </option>
+              ))}
             </select>
           </div>
-          <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>Arquivo</label>
+
+          <div className="field">
+            <label className="field-label" htmlFor="upload-category">Categoria</label>
+            <select
+              id="upload-category"
+              className="select"
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+            >
+              {CATEGORIES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles.uploadAction}>
             <input
+              ref={fileInputRef}
+              className={styles.hiddenInput}
               type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
               onChange={handleUpload}
               disabled={uploading}
-              style={{
-                width: '100%',
-                padding: '0.4rem',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)'
-              }}
             />
-          </div>
-          <div>
             <button
+              type="button"
+              className="button button-secondary"
               disabled={uploading}
-              onClick={() => document.querySelector('input[type="file"]').click()}
-              style={{
-                padding: '0.5rem 1rem',
-                background: 'var(--primary)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                cursor: uploading ? 'not-allowed' : 'pointer',
-                opacity: uploading ? 0.7 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                fontWeight: 500,
-                width: '100%',
-                justifyContent: 'center'
-              }}
+              onClick={() => fileInputRef.current?.click()}
             >
-              <Upload size={16} /> {uploading ? 'Enviando...' : 'Upload'}
+              <Upload size={17} aria-hidden="true" />
+              {uploading ? 'Enviando...' : 'Selecionar arquivo'}
             </button>
           </div>
         </div>
-        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-          Formatos suportados: PDF, JPG, PNG, DOC, DOCX
+
+        <p className={styles.uploadHint}>
+          PDF, imagens e documentos Word de até 10 MB. Arquivos novos são privados e não recebem URL pública permanente.
+        </p>
+      </section>
+
+      <section>
+        <div className={styles.listToolbar}>
+          <div>
+            <div className="section-kicker">Acervo</div>
+            <h2 className="section-title">Documentos armazenados</h2>
+          </div>
+
+          <div className={styles.filters}>
+            <select
+              className="select"
+              value={kindFilter}
+              onChange={(event) => setKindFilter(event.target.value)}
+              aria-label="Filtrar tipo de documento"
+            >
+              <option value="all">Todos</option>
+              <option value="issued">Emitidos</option>
+              <option value="attachment">Anexos</option>
+            </select>
+
+            <select
+              className="select"
+              value={patientFilter}
+              onChange={(event) => setPatientFilter(event.target.value)}
+              aria-label="Filtrar por paciente"
+            >
+              <option value="">Todos os pacientes</option>
+              {patients.map((patient) => (
+                <option key={patient.id} value={patient.id}>
+                  {patient.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
 
-      {/* Filtros */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <button
-          onClick={() => setFilter('all')}
-          style={{
-            padding: '0.3rem 0.8rem',
-            borderRadius: '20px',
-            border: filter === 'all' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-            background: filter === 'all' ? 'var(--primary-light)' : 'transparent',
-            color: filter === 'all' ? 'var(--primary)' : 'var(--text-secondary)',
-            cursor: 'pointer',
-            fontSize: '0.75rem',
-            fontWeight: filter === 'all' ? 600 : 400
-          }}
-        >
-          Todos
-        </button>
-        <button
-          onClick={() => setFilter('patient')}
-          style={{
-            padding: '0.3rem 0.8rem',
-            borderRadius: '20px',
-            border: filter === 'patient' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-            background: filter === 'patient' ? 'var(--primary-light)' : 'transparent',
-            color: filter === 'patient' ? 'var(--primary)' : 'var(--text-secondary)',
-            cursor: 'pointer',
-            fontSize: '0.75rem',
-            fontWeight: filter === 'patient' ? 600 : 400
-          }}
-        >
-          De pacientes
-        </button>
-        <button
-          onClick={() => setFilter('general')}
-          style={{
-            padding: '0.3rem 0.8rem',
-            borderRadius: '20px',
-            border: filter === 'general' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-            background: filter === 'general' ? 'var(--primary-light)' : 'transparent',
-            color: filter === 'general' ? 'var(--primary)' : 'var(--text-secondary)',
-            cursor: 'pointer',
-            fontSize: '0.75rem',
-            fontWeight: filter === 'general' ? 600 : 400
-          }}
-        >
-          Gerais
-        </button>
-        {selectedPatient && (
-          <button
-            onClick={() => { setSelectedPatient(''); setSearchTerm(''); }}
-            style={{
-              padding: '0.3rem 0.8rem',
-              borderRadius: '20px',
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              fontSize: '0.75rem'
-            }}
-          >
-            Limpar filtro de paciente
-          </button>
-        )}
-      </div>
-
-      {/* Lista de documentos */}
-      <div style={{ display: 'grid', gap: '0.5rem' }}>
-        {filteredDocs.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-            <FolderOpen size={32} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
-            <p>Nenhum documento encontrado</p>
+        {filteredDocuments.length === 0 ? (
+          <div className="surface empty-state">
+            <FolderOpen size={30} aria-hidden="true" />
+            <span>Nenhum documento encontrado para os filtros atuais.</span>
           </div>
         ) : (
-          filteredDocs.map(doc => {
-            const categoryInfo = CATEGORIES.find(c => c.value === doc.category) || CATEGORIES[4];
-            return (
-              <div
-                key={doc.id}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '0.8rem 1rem',
-                  background: 'var(--bg-primary)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-color)',
-                  transition: 'var(--transition)',
-                  flexWrap: 'wrap',
-                  gap: '0.5rem'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', overflow: 'hidden' }}>
-                  <File size={20} color="var(--text-muted)" />
-                  <div>
-                    <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{doc.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      {categoryInfo.label}
-                      {doc.patientId && <span style={{ marginLeft: '0.5rem' }}>• {getPatientName(doc.patientId)}</span>}
-                      <span style={{ marginLeft: '0.5rem' }}>• {(doc.fileSize / 1024).toFixed(1)} KB</span>
-                      {doc.generated && <span style={{ marginLeft: '0.5rem', color: '#8B5CF6' }}>• Gerado automaticamente</span>}
-                    </div>
+          <div className={styles.documentList}>
+            {filteredDocuments.map((item) => {
+              const issued = item.status === 'issued' || item.kind === 'generated';
+              const template = item.templateId
+                ? getDocumentTemplate(item.templateId, item.templateVersion)
+                : null;
+
+              return (
+                <article key={item.id} className={'surface ' + styles.documentRow}>
+                  <div className={styles.documentIcon}>
+                    {issued ? (
+                      <LockKeyhole size={19} aria-hidden="true" />
+                    ) : (
+                      <File size={19} aria-hidden="true" />
+                    )}
                   </div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.3rem' }}>
+
+                  <div className={styles.documentInfo}>
+                    <div className={styles.documentTitle}>
+                      <strong>{item.name}</strong>
+                      <span className={'badge ' + (issued ? 'badge-success' : 'badge-neutral')}>
+                        {issued ? 'Emitido' : 'Anexo'}
+                      </span>
+                    </div>
+
+                    <span>
+                      {item.patientId ? patientName(item.patientId) : 'Documento geral'}
+                      {template ? ' • ' + template.label : ''}
+                      {item.version ? ' • versão ' + item.version : ''}
+                      {item.fileSize ? ' • ' + Math.max(1, Math.round(item.fileSize / 1024)) + ' KB' : ''}
+                    </span>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => handleOpenDocument(doc)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--primary)',
-                      padding: '0.2rem 0.4rem'
-                    }}
-                    aria-label={`Abrir documento ${doc.name}`}
-                    title="Abrir documento"
+                    className="button button-ghost"
+                    onClick={() => handleOpenDocument(item)}
                   >
                     <Download size={16} aria-hidden="true" />
+                    Abrir
                   </button>
-                </div>
-              </div>
-            );
-          })
+                </article>
+              );
+            })}
+          </div>
         )}
+      </section>
+    </main>
+  );
+}
+
+function Metric({ icon: Icon, label, value, description }) {
+  return (
+    <article className={'surface ' + styles.metric}>
+      <Icon size={19} aria-hidden="true" />
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small>{description}</small>
       </div>
-    </div>
+    </article>
   );
 }

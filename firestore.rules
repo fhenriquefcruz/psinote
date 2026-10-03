@@ -331,6 +331,165 @@ service cloud.firestore {
         && validAppointmentChangedFields();
     }
 
+    function patientLinkBelongsToOwner(patientId) {
+      return patientId == null
+        || (
+          patientId is string
+          && exists(/databases/$(database)/documents/patients/$(patientId))
+          && get(
+            /databases/$(database)/documents/patients/$(patientId)
+          ).data.psychologistId == request.auth.uid
+        );
+    }
+
+    function validDocumentDraftCreate() {
+      return ownsIncomingRecord()
+        && request.resource.data.keys().hasOnly([
+          'psychologistId',
+          'patientId',
+          'patientName',
+          'templateId',
+          'templateVersion',
+          'templateType',
+          'templateFamily',
+          'values',
+          'status',
+          'familyId',
+          'issueVersion',
+          'supersedesDocumentId',
+          'issuedDocumentId',
+          'issuedAt',
+          'createdAt',
+          'updatedAt',
+          'createdBy',
+          'updatedBy'
+        ])
+        && patientLinkBelongsToOwner(
+          request.resource.data.get('patientId', null)
+        )
+        && request.resource.data.templateId is string
+        && request.resource.data.templateVersion is int
+        && request.resource.data.templateVersion > 0
+        && request.resource.data.values is map
+        && request.resource.data.status == 'draft'
+        && request.resource.data.familyId is string
+        && request.resource.data.issueVersion is int
+        && request.resource.data.issueVersion > 0
+        && request.resource.data.get('issuedDocumentId', null) == null
+        && request.resource.data.get('issuedAt', null) == null
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid;
+    }
+
+    function validDocumentDraftUpdate(draftRecordId) {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      let newStatus = request.resource.data.get('status', 'draft');
+      let issuedDocumentId = request.resource.data.get(
+        'issuedDocumentId',
+        null
+      );
+      let issuedDocumentPath = /databases/$(database)/documents/documents/$(issuedDocumentId);
+
+      return ownsExistingRecord()
+        && resource.data.status == 'draft'
+        && preservesOwnership()
+        && preservesPatientLink()
+        && preservesCreationMetadata()
+        && request.resource.data.templateId == resource.data.templateId
+        && request.resource.data.templateVersion == resource.data.templateVersion
+        && request.resource.data.templateType == resource.data.templateType
+        && request.resource.data.templateFamily == resource.data.templateFamily
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.issueVersion == resource.data.issueVersion
+        && request.resource.data.get('supersedesDocumentId', null)
+          == resource.data.get('supersedesDocumentId', null)
+        && request.resource.data.updatedBy == request.auth.uid
+        && affected.hasOnly([
+          'values',
+          'status',
+          'issuedDocumentId',
+          'issuedAt',
+          'updatedAt',
+          'updatedBy'
+        ])
+        && (
+          (
+            newStatus == 'draft'
+            && request.resource.data.get('issuedDocumentId', null) == null
+            && request.resource.data.get('issuedAt', null) == null
+          )
+          || (
+            newStatus == 'issued'
+            && issuedDocumentId is string
+            && request.resource.data.get('issuedAt', null) != null
+            && existsAfter(issuedDocumentPath)
+            && getAfter(issuedDocumentPath).data.psychologistId
+              == request.auth.uid
+            && getAfter(issuedDocumentPath).data.draftId
+              == draftRecordId
+            && getAfter(issuedDocumentPath).data.status == 'issued'
+          )
+        );
+    }
+
+    function validDocumentCreate(documentRecordId) {
+      let kind = request.resource.data.get('kind', 'attachment');
+      let status = request.resource.data.get('status', 'stored');
+      let draftId = request.resource.data.get('draftId', null);
+      let draftPath = /databases/$(database)/documents/document_drafts/$(draftId);
+
+      return ownsIncomingRecord()
+        && patientLinkBelongsToOwner(
+          request.resource.data.get('patientId', null)
+        )
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.uploadedBy == request.auth.uid
+        && request.resource.data.storageProvider == 'firebase'
+        && request.resource.data.storagePath is string
+        && request.resource.data.fileType is string
+        && request.resource.data.fileSize is int
+        && request.resource.data.fileSize > 0
+        && request.resource.data.version is int
+        && request.resource.data.version > 0
+        && (
+          (
+            kind == 'attachment'
+            && status == 'stored'
+            && draftId == null
+            && request.resource.data.get('templateId', null) == null
+            && request.resource.data.get('templateVersion', null) == null
+            && request.resource.data.get('familyId', null) == null
+            && request.resource.data.get('issuedAt', null) == null
+          )
+          || (
+            kind == 'generated'
+            && status == 'issued'
+            && draftId is string
+            && request.resource.data.templateId is string
+            && request.resource.data.templateVersion is int
+            && request.resource.data.familyId is string
+            && request.resource.data.issuedBy == request.auth.uid
+            && request.resource.data.get('issuedAt', null) != null
+            && existsAfter(draftPath)
+            && getAfter(draftPath).data.psychologistId == request.auth.uid
+            && getAfter(draftPath).data.patientId
+              == request.resource.data.get('patientId', null)
+            && getAfter(draftPath).data.templateId
+              == request.resource.data.templateId
+            && getAfter(draftPath).data.templateVersion
+              == request.resource.data.templateVersion
+            && getAfter(draftPath).data.familyId
+              == request.resource.data.familyId
+            && getAfter(draftPath).data.issueVersion
+              == request.resource.data.version
+            && getAfter(draftPath).data.status == 'issued'
+            && getAfter(draftPath).data.issuedDocumentId
+              == documentRecordId
+          )
+        );
+    }
+
     function safeActivityPayload() {
       return request.resource.data.keys().hasOnly([
           'psychologistId',
@@ -405,14 +564,17 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /documents/{recordId} {
-      allow create: if ownsIncomingRecord();
+    match /document_drafts/{recordId} {
+      allow create: if validDocumentDraftCreate();
       allow read: if ownsExistingRecord();
-      allow update: if ownsExistingRecord()
-        && preservesOwnership()
-        && preservesPatientLink()
-        && preservesCreationMetadata();
+      allow update: if validDocumentDraftUpdate(recordId);
       allow delete: if false;
+    }
+
+    match /documents/{recordId} {
+      allow create: if validDocumentCreate(recordId);
+      allow read: if ownsExistingRecord();
+      allow update, delete: if false;
     }
 
     match /activities/{recordId} {

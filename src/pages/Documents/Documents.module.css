@@ -1,0 +1,185 @@
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.metric {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.metric svg {
+  color: var(--primary);
+}
+
+.metric > div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.metric span,
+.metric small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.metric strong {
+  color: var(--text-primary);
+  font-size: 1.25rem;
+}
+
+.draftList {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+.draftCard,
+.documentRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.draftCard {
+  padding: var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+}
+
+.documentIcon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.documentInfo {
+  min-width: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.documentInfo strong {
+  color: var(--text-primary);
+}
+
+.documentInfo > span,
+.documentTitle + span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+
+.documentTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.documentTitle strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uploadSection {
+  margin: var(--space-5) 0;
+}
+
+.uploadGrid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  gap: var(--space-4);
+  align-items: end;
+  padding: 0 var(--space-5);
+}
+
+.uploadAction {
+  display: flex;
+  align-items: flex-end;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.uploadHint {
+  margin: var(--space-3) var(--space-5) var(--space-5);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.listToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(150px, 180px) minmax(190px, 240px);
+  gap: var(--space-2);
+}
+
+.documentList {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.documentRow {
+  padding: var(--space-3) var(--space-4);
+}
+
+@media (max-width: 860px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .uploadGrid,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .uploadAction .button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .listToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filters {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .draftCard,
+  .documentRow {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .draftCard .button,
+  .documentRow .button {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: center;
+  }
+}
