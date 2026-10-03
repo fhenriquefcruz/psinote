@@ -1,5 +1,12 @@
 import { Clock, User, FileText, Calendar, Edit, Trash2, Archive, Upload } from 'lucide-react';
 
+const parseActivityDate = (value) => {
+  if (!value) return null;
+  if (typeof value?.toDate === 'function') return value.toDate();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 // Mapeia ações em português e para os ícones
 const actionMap = {
   'Paciente criado': { icon: User, color: '#4F46E5' },
@@ -41,6 +48,24 @@ const translateAction = (action) => {
     'Appointment rescheduled': 'Consulta reagendada',
     'Appointment confirmed': 'Consulta confirmada',
     'Appointment missed': 'Consulta faltou',
+    'patient.created': 'Paciente criado',
+    'patient.updated': 'Paciente editado',
+    'patient.archived': 'Paciente arquivado',
+    'patient.restored': 'Paciente restaurado',
+    'patient.moved_to_trash': 'Paciente movido para a lixeira',
+    'patient.duplicated': 'Paciente duplicado',
+    'session.created': 'Sessão criada',
+    'session.updated': 'Sessão editada',
+    'session.archived': 'Sessão arquivada',
+    'session.restored': 'Sessão restaurada',
+    'session.duplicated': 'Sessão duplicada',
+    'document.created': 'Documento enviado',
+    'document.deleted': 'Documento removido',
+    'appointment.created': 'Consulta agendada',
+    'appointment.updated': 'Consulta atualizada',
+    'appointment.status_changed': 'Status da consulta alterado',
+    'appointment.rescheduled': 'Consulta reagendada',
+    'appointment.deleted': 'Consulta removida'
   };
   return translations[action] || action;
 };
@@ -65,9 +90,9 @@ export default function RecentActivities({ activities }) {
   }
 
   const sorted = [...activities].sort((a, b) => {
-    const dateA = new Date(a.timestamp);
-    const dateB = new Date(b.timestamp);
-    return dateB - dateA;
+    const dateA = parseActivityDate(a.timestamp);
+    const dateB = parseActivityDate(b.timestamp);
+    return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
   });
 
   return (
@@ -130,14 +155,12 @@ export default function RecentActivities({ activities }) {
                 </span>
               </div>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                {a.timestamp
-                  ? new Date(a.timestamp).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })
-                  : ''}
+                {parseActivityDate(a.timestamp)?.toLocaleDateString('pt-BR', {
+                  day: '2-digit',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) || ''}
               </span>
             </li>
           );
