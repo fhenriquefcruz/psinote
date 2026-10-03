@@ -11,7 +11,7 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
-export const AuthContext = createContext();
+export const AuthContext = createContext(/** @type {AuthContextValue | null} */ (null));
 
 const SAFE_PROFILE_FIELDS = new Set(['name', 'phone', 'photoURL', 'crp', 'crpUf']);
 
