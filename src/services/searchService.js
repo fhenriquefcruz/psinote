@@ -11,10 +11,7 @@ import { getDocumentTemplate } from '../domain/documentTemplates';
 import { metadataMatches, normalizeSearchText } from '../domain/search';
 import { parseDateValue } from '../utils/date.js';
 
-const MAX_PATIENTS = 60;
-const MAX_SESSIONS = 40;
-const MAX_DOCUMENTS = 40;
-const MAX_DRAFTS = 25;
+const MAX_INDEX_ENTRIES = 160;
 const MAX_RESULTS_PER_GROUP = 6;
 
 const formatDate = (value) => {
@@ -22,73 +19,91 @@ const formatDate = (value) => {
   return date ? date.toLocaleDateString('pt-BR') : '';
 };
 
-const takeMatches = (items, term, getFields) =>
-  items
-    .filter((item) => metadataMatches(term, getFields(item)))
-    .slice(0, MAX_RESULTS_PER_GROUP);
-
-const patientProjection = (snapshot) => {
+const projectEntry = (snapshot) => {
   const data = snapshot.data();
-  return {
-    id: snapshot.id,
-    type: 'patient',
-    title: data.name || 'Paciente',
-    subtitle: 'Paciente ativo',
-    route: '/patients/' + snapshot.id
-  };
+
+  if (data.entityType === 'patient') {
+    return {
+      id: data.entityId,
+      type: 'patient',
+      title: data.title || 'Paciente',
+      subtitle: 'Paciente ativo',
+      route: '/patients/' + data.entityId
+    };
+  }
+
+  if (data.entityType === 'session') {
+    const number = data.sessionNumber
+      ? 'Sessão ' + data.sessionNumber
+      : 'Sessão';
+    const status = data.status === 'finalized' ? 'Finalizada' : 'Rascunho';
+
+    return {
+      id: data.entityId,
+      type: 'session',
+      title: data.title || 'Paciente',
+      subtitle: [
+        number,
+        formatDate(data.date),
+        status
+      ].filter(Boolean).join(' • '),
+      route: '/sessions/' + data.entityId
+    };
+  }
+
+  if (data.entityType === 'document') {
+    const template = data.templateId
+      ? getDocumentTemplate(data.templateId, data.templateVersion)
+      : null;
+
+    return {
+      id: data.entityId,
+      type: 'document',
+      title: data.title || template?.label || 'Documento',
+      subtitle: [
+        template?.label,
+        data.status === 'issued' ? 'Emitido' : 'Anexo',
+        data.version ? 'v' + data.version : null
+      ].filter(Boolean).join(' • '),
+      action: 'open-document'
+    };
+  }
+
+  if (data.entityType === 'draft') {
+    const template = getDocumentTemplate(
+      data.templateId,
+      data.templateVersion
+    );
+
+    return {
+      id: data.entityId,
+      type: 'draft',
+      title: data.title || 'Paciente',
+      subtitle: [
+        template?.label || 'Documento',
+        'Rascunho'
+      ].join(' • '),
+      route: '/documents/generate?draftId=' + data.entityId
+    };
+  }
+
+  return null;
 };
 
-const sessionProjection = (snapshot) => {
-  const data = snapshot.data();
-  const number = data.sessionNumber ? 'Sessão ' + data.sessionNumber : 'Sessão';
-  const date = formatDate(data.date);
-  const status = data.status === 'finalized' ? 'Finalizada' : 'Rascunho';
-
-  return {
-    id: snapshot.id,
-    type: 'session',
-    title: data.patientName || 'Paciente',
-    subtitle: [number, date, status].filter(Boolean).join(' • '),
-    route: '/sessions/' + snapshot.id
-  };
-};
-
-const documentProjection = (snapshot) => {
-  const data = snapshot.data();
+const fieldsForSearch = (data) => {
   const template = data.templateId
     ? getDocumentTemplate(data.templateId, data.templateVersion)
     : null;
 
-  return {
-    id: snapshot.id,
-    type: 'document',
-    title: data.name || template?.label || 'Documento',
-    subtitle: [
-      template?.label,
-      data.status === 'issued' ? 'Emitido' : 'Anexo',
-      data.version ? 'v' + data.version : null
-    ].filter(Boolean).join(' • '),
-    action: 'open-document'
-  };
-};
-
-const draftProjection = (snapshot) => {
-  const data = snapshot.data();
-  const template = getDocumentTemplate(
-    data.templateId,
-    data.templateVersion
-  );
-
-  return {
-    id: snapshot.id,
-    type: 'draft',
-    title: data.patientName || 'Paciente',
-    subtitle: [
-      template?.label || data.templateType || 'Documento',
-      'Rascunho'
-    ].join(' • '),
-    route: '/documents/generate?draftId=' + snapshot.id
-  };
+  return [
+    data.title,
+    data.entityType,
+    data.status,
+    data.sessionNumber ? 'sessao ' + data.sessionNumber : '',
+    formatDate(data.date),
+    template?.label,
+    data.kind
+  ];
 };
 
 export const globalSearch = async (psychologistId, term) => {
@@ -103,112 +118,43 @@ export const globalSearch = async (psychologistId, term) => {
     };
   }
 
-  const [
-    patientsSnapshot,
-    sessionsSnapshot,
-    documentsSnapshot,
-    draftsSnapshot
-  ] = await Promise.all([
-    getDocs(
-      query(
-        collection(db, 'patients'),
-        where('psychologistId', '==', psychologistId),
-        where('status', '==', 'active'),
-        orderBy('createdAt', 'desc'),
-        limit(MAX_PATIENTS)
-      )
-    ),
-    getDocs(
-      query(
-        collection(db, 'sessions'),
-        where('psychologistId', '==', psychologistId),
-        orderBy('date', 'desc'),
-        limit(MAX_SESSIONS)
-      )
-    ),
-    getDocs(
-      query(
-        collection(db, 'documents'),
-        where('psychologistId', '==', psychologistId),
-        orderBy('uploadedAt', 'desc'),
-        limit(MAX_DOCUMENTS)
-      )
-    ),
-    getDocs(
-      query(
-        collection(db, 'document_drafts'),
-        where('psychologistId', '==', psychologistId),
-        where('status', '==', 'draft'),
-        orderBy('updatedAt', 'desc'),
-        limit(MAX_DRAFTS)
-      )
+  const snapshot = await getDocs(
+    query(
+      collection(db, 'search_entries'),
+      where('psychologistId', '==', psychologistId),
+      where('searchable', '==', true),
+      orderBy('updatedAt', 'desc'),
+      limit(MAX_INDEX_ENTRIES)
     )
-  ]);
+  );
 
-  const patientDocs = patientsSnapshot.docs;
-  const sessionDocs = sessionsSnapshot.docs;
-  const documentDocs = documentsSnapshot.docs;
-  const draftDocs = draftsSnapshot.docs;
-
-  return {
-    patients: takeMatches(
-      patientDocs,
-      normalized,
-      (snapshot) => {
-        const data = snapshot.data();
-        return [data.name];
-      }
-    ).map(patientProjection),
-
-    sessions: takeMatches(
-      sessionDocs,
-      normalized,
-      (snapshot) => {
-        const data = snapshot.data();
-        return [
-          data.patientName,
-          data.sessionNumber ? 'sessao ' + data.sessionNumber : '',
-          formatDate(data.date),
-          data.status
-        ];
-      }
-    ).map(sessionProjection),
-
-    documents: takeMatches(
-      documentDocs,
-      normalized,
-      (snapshot) => {
-        const data = snapshot.data();
-        const template = data.templateId
-          ? getDocumentTemplate(data.templateId, data.templateVersion)
-          : null;
-
-        return [
-          data.name,
-          template?.label,
-          data.category,
-          data.status,
-          data.kind
-        ];
-      }
-    ).map(documentProjection),
-
-    drafts: takeMatches(
-      draftDocs,
-      normalized,
-      (snapshot) => {
-        const data = snapshot.data();
-        const template = getDocumentTemplate(
-          data.templateId,
-          data.templateVersion
-        );
-
-        return [
-          data.patientName,
-          template?.label,
-          data.templateType
-        ];
-      }
-    ).map(draftProjection)
+  const groups = {
+    patients: [],
+    sessions: [],
+    documents: [],
+    drafts: []
   };
+
+  for (const item of snapshot.docs) {
+    const data = item.data();
+    if (!metadataMatches(normalized, fieldsForSearch(data))) continue;
+
+    const projected = projectEntry(item);
+    if (!projected) continue;
+
+    const groupKey =
+      projected.type === 'patient'
+        ? 'patients'
+        : projected.type === 'session'
+          ? 'sessions'
+          : projected.type === 'document'
+            ? 'documents'
+            : 'drafts';
+
+    if (groups[groupKey].length < MAX_RESULTS_PER_GROUP) {
+      groups[groupKey].push(projected);
+    }
+  }
+
+  return groups;
 };
