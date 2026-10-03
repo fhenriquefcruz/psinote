@@ -131,7 +131,6 @@ jobs:
         with:
           name: visual-regression-${{ github.run_id }}
           path: |
-            tests/e2e/visual.spec.js-snapshots/
             test-results/
             playwright-report/
           if-no-files-found: ignore
