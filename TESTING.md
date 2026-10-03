@@ -32,7 +32,12 @@ Current pure-domain coverage includes:
 - Monday-to-Sunday week boundaries;
 - month calendar grids;
 - day/week/month/list query ranges;
-- calendar month navigation.
+- calendar month navigation;
+- document template availability/version lookup;
+- conditional declaration validation;
+- declaration objective rendering safeguards;
+- psychological report structure;
+- restricted-template emission denial.
 
 ### Firebase Security Rules
 `npm run test:rules`
@@ -56,7 +61,12 @@ Runs Firestore and Storage emulators using a demo project ID and tests:
 - finalized-session silent edit denial;
 - immutable version append/read boundaries;
 - version snapshot/parent consistency;
-- immutable legacy embedded history.
+- immutable legacy embedded history;
+- document draft tenant isolation;
+- immutable draft template/patient ownership;
+- paired draft -> issued document transition;
+- immutable issued document metadata;
+- private attachment creation and cross-patient denial.
 
 The tests use `@firebase/rules-unit-testing`, which supports mock authenticated contexts against the Emulator Suite without contacting production.
 
@@ -78,7 +88,6 @@ The Firebase emulator requires Java. CI uses Java 21.
 ## Required test layers still to add
 
 ### Unit still to add
-- document-template validation;
 - patient/session payload schemas;
 - autosave state machine;
 - retention eligibility policy.
@@ -86,7 +95,7 @@ The Firebase emulator requires Java. CI uses Java 21.
 ### Integration
 - appointment -> session -> finalized record linkage;
 - patient archive/reactivation;
-- document metadata + storage upload;
+- end-to-end document draft + PDF upload + atomic issue metadata;
 - version history;
 - global search query boundaries.
 
