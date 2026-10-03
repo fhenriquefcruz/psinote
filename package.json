@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "security:check": "node scripts/security-check.mjs",
+    "validate": "npm run security:check && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",

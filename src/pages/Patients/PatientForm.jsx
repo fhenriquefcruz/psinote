@@ -33,9 +33,9 @@ export default function PatientForm() {
   });
 
   useEffect(() => {
-    if (id) {
+    if (id && user) {
       const load = async () => {
-        const data = await getPatientById(id);
+        const data = await getPatientById(id, user.uid);
         if (data) {
           setFormData({
             name: data.name || '',
@@ -62,7 +62,7 @@ export default function PatientForm() {
       };
       load();
     }
-  }, [id]);
+  }, [id, user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

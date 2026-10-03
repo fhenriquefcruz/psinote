@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, X, Users, FileText, Calendar } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { globalSearch } from '../../../services/searchService';
+import { getDocumentAccessUrl } from '../../../services/documentService';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 export default function SearchBar() {
   const [query, setQuery] = useState('');
@@ -49,6 +51,20 @@ export default function SearchBar() {
     setQuery('');
     if (type === 'patient') navigate(`/patients/${id}`);
     else if (type === 'session') navigate(`/sessions/${id}`);
+  };
+
+  const handleOpenDocument = async (documentItem) => {
+    try {
+      const { url, revokeAfterUse } = await getDocumentAccessUrl(documentItem, user.uid);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      if (revokeAfterUse) {
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
+      setIsOpen(false);
+      setQuery('');
+    } catch {
+      toast.error('Não foi possível abrir o documento.');
+    }
   };
 
   const totalResults = results.patients.length + results.sessions.length + results.documents.length;
@@ -145,7 +161,7 @@ export default function SearchBar() {
                     <FileText size={12} style={{ display: 'inline', marginRight: '0.3rem' }} /> Documentos
                   </div>
                   {results.documents.map(d => (
-                    <div key={d.id} onClick={() => window.open(d.fileURL, '_blank')} style={{ padding: '0.4rem 0.8rem', cursor: 'pointer', transition: 'var(--transition)' }}
+                    <div key={d.id} onClick={() => handleOpenDocument(d)} style={{ padding: '0.4rem 0.8rem', cursor: 'pointer', transition: 'var(--transition)' }}
                       onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
                       onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                       <span style={{ color: 'var(--text-primary)' }}>{d.name}</span>

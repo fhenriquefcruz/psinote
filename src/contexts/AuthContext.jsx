@@ -1,17 +1,24 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
-  updateProfile
+  updateProfile,
+  getIdTokenResult
 } from 'firebase/auth';
-import { auth } from '../firebase/config';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { auth, db } from '../firebase/config';
 
 export const AuthContext = createContext();
+
+const SAFE_PROFILE_FIELDS = new Set(['name', 'phone', 'photoURL', 'crp', 'crpUf']);
+
+const sanitizeProfileUpdate = (data) =>
+  Object.fromEntries(
+    Object.entries(data || {}).filter(([key]) => SAFE_PROFILE_FIELDS.has(key))
+  );
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -21,75 +28,103 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      if (firebaseUser) {
-        const docRef = doc(db, 'users', firebaseUser.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          let data = docSnap.data();
-          // 👇 FORÇA ADMIN PARA O E-MAIL ESPECÍFICO
-          if (firebaseUser.email === 'fhenriquefcruz@gmail.com' && data.role !== 'admin') {
-            data.role = 'admin';
-            await setDoc(docRef, data, { merge: true });
-          }
-          setUserProfile(data);
-          setUserRole(data.role || 'user');
+      setLoading(true);
+
+      if (!firebaseUser) {
+        setUser(null);
+        setUserProfile(null);
+        setUserRole('user');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const [tokenResult, profileSnapshot] = await Promise.all([
+          getIdTokenResult(firebaseUser),
+          getDoc(doc(db, 'users', firebaseUser.uid))
+        ]);
+
+        // Authorization is derived from a signed Firebase ID token.
+        // Profile fields stored in Firestore are presentation data only and
+        // must never grant privileges.
+        const role = tokenResult.claims.admin === true ? 'admin' : 'user';
+        let profile;
+
+        if (profileSnapshot.exists()) {
+          profile = profileSnapshot.data();
         } else {
-          const isAdmin = firebaseUser.email === 'fhenriquefcruz@gmail.com';
-          const newProfile = {
+          profile = {
             name: firebaseUser.displayName || '',
-            email: firebaseUser.email,
+            email: firebaseUser.email || '',
             phone: '',
             photoURL: firebaseUser.photoURL || '',
-            role: isAdmin ? 'admin' : 'user',
+            role: 'user',
+            blocked: false,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
           };
-          await setDoc(docRef, newProfile);
-          setUserProfile(newProfile);
-          setUserRole(newProfile.role);
+
+          await setDoc(doc(db, 'users', firebaseUser.uid), profile);
         }
-      } else {
+
+        if (profile.blocked === true) {
+          await signOut(auth);
+          return;
+        }
+
+        setUser(firebaseUser);
+        setUserProfile({ ...profile, role });
+        setUserRole(role);
+      } catch (error) {
+        console.error('Falha ao inicializar sessão autenticada');
+        setUser(null);
         setUserProfile(null);
         setUserRole('user');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return unsubscribe;
   }, []);
 
   const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
+
   const register = async (name, email, password) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(userCredential.user, { displayName: name });
-    const isAdmin = email === 'fhenriquefcruz@gmail.com';
+
     const userRef = doc(db, 'users', userCredential.user.uid);
     await setDoc(userRef, {
       name,
       email,
       phone: '',
       photoURL: '',
-      role: isAdmin ? 'admin' : 'user',
+      role: 'user',
+      blocked: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+
     return userCredential;
   };
+
   const logout = () => signOut(auth);
   const resetPassword = (email) => sendPasswordResetEmail(auth, email);
 
   const updateUserProfile = async (data) => {
     if (!user) throw new Error('Usuário não autenticado');
-    const userRef = doc(db, 'users', user.uid);
-    await setDoc(userRef, { ...data, updatedAt: serverTimestamp() }, { merge: true });
-    setUserProfile(prev => ({ ...prev, ...data }));
-  };
 
-  const updateUserRole = async (uid, role) => {
-    if (userRole !== 'admin') throw new Error('Apenas administradores podem alterar papéis');
-    const userRef = doc(db, 'users', uid);
-    await setDoc(userRef, { role, updatedAt: serverTimestamp() }, { merge: true });
+    const safeData = sanitizeProfileUpdate(data);
+    const userRef = doc(db, 'users', user.uid);
+
+    await setDoc(
+      userRef,
+      { ...safeData, updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+
+    setUserProfile((previous) => ({ ...previous, ...safeData }));
   };
 
   const value = {
@@ -102,12 +137,12 @@ export function AuthProvider({ children }) {
     logout,
     resetPassword,
     updateUserProfile,
-    updateUserRole,
     isAdmin: userRole === 'admin'
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

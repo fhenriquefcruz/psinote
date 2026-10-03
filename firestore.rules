@@ -1,0 +1,98 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    function userProfileExists() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isActiveUser() {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return userProfileExists()
+        && (!profile.keys().hasAny(['blocked']) || profile.blocked != true);
+    }
+
+    function ownsExistingRecord() {
+      return isActiveUser()
+        && resource.data.psychologistId == request.auth.uid;
+    }
+
+    function ownsIncomingRecord() {
+      return isActiveUser()
+        && request.resource.data.psychologistId == request.auth.uid;
+    }
+
+    function preservesOwnership() {
+      return request.resource.data.psychologistId == resource.data.psychologistId;
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role == 'user'
+        && request.resource.data.blocked == false;
+
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name',
+          'phone',
+          'photoURL',
+          'crp',
+          'crpUf',
+          'updatedAt'
+        ]);
+
+      // Privileged account lifecycle/role changes are intentionally denied to
+      // browser clients. They must be performed by a trusted Admin SDK backend.
+      allow delete: if false;
+    }
+
+    match /patients/{recordId} {
+      allow create: if ownsIncomingRecord();
+      allow read, delete: if ownsExistingRecord();
+      allow update: if ownsExistingRecord() && preservesOwnership();
+    }
+
+    match /sessions/{recordId} {
+      allow create: if ownsIncomingRecord();
+      allow read, delete: if ownsExistingRecord();
+      allow update: if ownsExistingRecord() && preservesOwnership();
+    }
+
+    match /appointments/{recordId} {
+      allow create: if ownsIncomingRecord();
+      allow read, delete: if ownsExistingRecord();
+      allow update: if ownsExistingRecord() && preservesOwnership();
+    }
+
+    match /documents/{recordId} {
+      allow create: if ownsIncomingRecord();
+      allow read, delete: if ownsExistingRecord();
+      allow update: if ownsExistingRecord() && preservesOwnership();
+    }
+
+    match /activities/{recordId} {
+      allow create: if ownsIncomingRecord();
+      allow read: if ownsExistingRecord();
+
+      // Activity records are append-only for browser clients.
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

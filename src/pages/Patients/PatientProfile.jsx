@@ -2,7 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { getPatientById, archivePatient, restorePatient } from '../../services/patientService';
 import { getSessionsByPatient } from '../../services/sessionService';
-import { getDocuments } from '../../services/documentService';
+import { getDocuments, getDocumentAccessUrl } from '../../services/documentService';
 import { useAuth } from '../../hooks/useAuth';
 import { toast } from 'react-toastify';
 
@@ -18,7 +18,7 @@ export default function PatientProfile() {
   useEffect(() => {
     const load = async () => {
       try {
-        const p = await getPatientById(id);
+        const p = await getPatientById(id, user.uid);
         setPatient(p);
         const s = await getSessionsByPatient(id, user.uid);
         setSessions(s);
@@ -30,8 +30,20 @@ export default function PatientProfile() {
         setLoading(false);
       }
     };
-    if (id) load();
+    if (id && user) load();
   }, [id, user]);
+
+  const handleOpenDocument = async (documentItem) => {
+    try {
+      const { url, revokeAfterUse } = await getDocumentAccessUrl(documentItem, user.uid);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      if (revokeAfterUse) {
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
+    } catch {
+      toast.error('Não foi possível abrir o documento.');
+    }
+  };
 
   const handleArchive = async () => {
     await archivePatient(id, user.uid);
@@ -117,7 +129,13 @@ export default function PatientProfile() {
               <ul>
                 {documents.map(d => (
                   <li key={d.id}>
-                    <a href={d.fileURL} target="_blank" rel="noopener noreferrer">{d.name}</a>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenDocument(d)}
+                      style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', cursor: 'pointer' }}
+                    >
+                      {d.name}
+                    </button>
                   </li>
                 ))}
               </ul>

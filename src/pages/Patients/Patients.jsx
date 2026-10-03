@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { getPatients, archivePatient, restorePatient, deletePatient, getTrashPatients } from '../../services/patientService';
+import { getPatients, archivePatient, restorePatient } from '../../services/patientService';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Trash2, Archive, RotateCcw, ChevronLeft, ChevronRight, CheckSquare, Square } from 'lucide-react';
+import { Archive, RotateCcw, CheckSquare, Square } from 'lucide-react';
 
 export default function Patients() {
   const { user } = useAuth();
@@ -40,14 +40,6 @@ export default function Patients() {
     loadPatients();
   };
 
-  const handleDeletePermanent = async (id) => {
-    if (window.confirm('Excluir permanentemente este paciente? Esta ação não pode ser desfeita.')) {
-      await deletePatient(id, user.uid);
-      toast.success('Paciente excluído permanentemente');
-      loadPatients();
-    }
-  };
-
   const handleSelectAll = () => {
     if (selectAll) {
       setSelected([]);
@@ -61,15 +53,13 @@ export default function Patients() {
     setSelected(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkRestore = async () => {
     if (selected.length === 0) return;
-    if (window.confirm(`Excluir permanentemente ${selected.length} paciente(s)? Esta ação não pode ser desfeita.`)) {
-      for (const id of selected) {
-        await deletePatient(id, user.uid);
-      }
-      toast.success(`${selected.length} paciente(s) excluído(s)`);
-      loadPatients();
+    for (const id of selected) {
+      await restorePatient(id, user.uid);
     }
+    toast.success(`${selected.length} paciente(s) restaurado(s)`);
+    loadPatients();
   };
 
   const getDaysInTrash = (deletedAt) => {
@@ -103,7 +93,7 @@ export default function Patients() {
 
       {filter === 'deleted' && (
         <div style={{ background: 'var(--bg-tertiary)', padding: '0.5rem 1rem', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          ⏳ Os pacientes permanecem na lixeira por 30 dias. Após esse período, serão removidos automaticamente.
+          A lixeira é reversível. O PsiNote não apaga registros clínicos automaticamente; descarte definitivo exige política de retenção e processo autorizado.
           {patients.length > 0 && (
             <span style={{ marginLeft: '0.5rem', fontWeight: 600, color: 'var(--text-primary)' }}>
               ({patients.length} paciente(s) na lixeira)
@@ -119,8 +109,8 @@ export default function Patients() {
             {selectAll ? 'Desmarcar todos' : 'Selecionar todos'}
           </button>
           {selected.length > 0 && (
-            <button onClick={handleBulkDelete} style={{ background: 'var(--danger)', color: '#fff', border: 'none', padding: '0.3rem 0.8rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem' }}>
-              <Trash2 size={14} /> Excluir {selected.length} selecionado(s)
+            <button onClick={handleBulkRestore} style={{ background: 'var(--danger)', color: '#fff', border: 'none', padding: '0.3rem 0.8rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem' }}>
+              <RotateCcw size={14} /> Restaurar {selected.length} selecionado(s)
             </button>
           )}
         </div>
@@ -132,8 +122,6 @@ export default function Patients() {
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {patients.map(p => {
             const isSelected = selected.includes(p.id);
-            const daysInTrash = filter === 'deleted' ? getDaysInTrash(p.deletedAt) : 0;
-            const remainingDays = Math.max(0, 30 - daysInTrash);
             return (
               <li key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: isSelected ? 'var(--primary-light)' : 'transparent', borderRadius: 'var(--radius-sm)', borderBottom: '1px solid var(--border-color)', transition: 'var(--transition)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flex: 1 }}>
@@ -147,7 +135,7 @@ export default function Patients() {
                   </Link>
                   {filter === 'deleted' && (
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
-                      🕒 {remainingDays} dias restantes
+                      Retenção protegida
                     </span>
                   )}
                 </div>
@@ -166,8 +154,8 @@ export default function Patients() {
                     </button>
                   )}
                   {filter === 'deleted' && (
-                    <button onClick={() => handleDeletePermanent(p.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.8rem', padding: '0.2rem 0.4rem' }}>
-                      <Trash2 size={16} />
+                    <button onClick={() => handleRestore(p.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.8rem', padding: '0.2rem 0.4rem' }}>
+                      <RotateCcw size={16} />
                     </button>
                   )}
                 </div>

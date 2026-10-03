@@ -53,7 +53,7 @@ export default function Reports() {
   // RELATÓRIO DO PACIENTE
   // ============================================
   const generatePatientPDF = async (patientId) => {
-    const patient = await getPatientById(patientId);
+    const patient = await getPatientById(patientId, user.uid);
     const sessions = await getSessionsByPatient(patientId, user.uid);
 
     const doc = new jsPDF('p', 'mm', 'a4');
@@ -426,7 +426,7 @@ export default function Reports() {
       </div>
 
       <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-        <strong>📌 Conformidade CRP:</strong> Os relatórios incluem identificação profissional e são gerados em conformidade com as normas do Conselho Regional de Psicologia.
+        <strong>Revisão profissional obrigatória:</strong> a geração pelo sistema não certifica conformidade normativa. O conteúdo, a finalidade e a modalidade do documento devem ser revisados pelo profissional antes de qualquer uso ou entrega.
       </div>
     </div>
   );
