@@ -62,12 +62,6 @@ export default function Patients() {
     loadPatients();
   };
 
-  const getDaysInTrash = (deletedAt) => {
-    if (!deletedAt) return 0;
-    const days = Math.floor((Date.now() - deletedAt.toDate?.()?.getTime()) / (1000 * 60 * 60 * 24));
-    return days;
-  };
-
   if (loading) return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Carregando...</div>;
 
   return (
