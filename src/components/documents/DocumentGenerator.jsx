@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Eye,
-  FileText,
   LockKeyhole,
   Save
 } from 'lucide-react';
