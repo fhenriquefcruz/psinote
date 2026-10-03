@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { getPatients, archivePatient, restorePatient, deletePatient, getTrashPatients } from '../../services/patientService';
+import { getPatients, archivePatient, restorePatient } from '../../services/patientService';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Trash2, Archive, RotateCcw, ChevronLeft, ChevronRight, CheckSquare, Square } from 'lucide-react';
+import { Archive, RotateCcw, CheckSquare, Square } from 'lucide-react';
 
 export default function Patients() {
   const { user } = useAuth();
@@ -122,8 +122,6 @@ export default function Patients() {
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {patients.map(p => {
             const isSelected = selected.includes(p.id);
-            const daysInTrash = filter === 'deleted' ? getDaysInTrash(p.deletedAt) : 0;
-            const remainingDays = Math.max(0, 30 - daysInTrash);
             return (
               <li key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: isSelected ? 'var(--primary-light)' : 'transparent', borderRadius: 'var(--radius-sm)', borderBottom: '1px solid var(--border-color)', transition: 'var(--transition)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flex: 1 }}>
