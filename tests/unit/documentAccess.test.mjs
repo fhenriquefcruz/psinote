@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { isPrivateDocumentReference } from '../../src/domain/documentAccess.js';
+import { isPrivateDocumentReference, buildPrivateStoragePath } from '../../src/domain/documentAccess.js';
 
 const owner = 'professional-uid';
 
@@ -57,5 +57,31 @@ describe('document access policy', () => {
       assert.equal(isPrivateDocumentReference(attempt, owner), false);
     }
     assert.equal(isPrivateDocumentReference(null, owner), false);
+  });
+});
+
+describe('opaque private object keys', () => {
+  test('never include the patient name or original file name', () => {
+    const path = buildPrivateStoragePath(
+      'professional-uid',
+      'application/pdf',
+      'c74be89a-1267-4482-95ee-5829858f449b'
+    );
+    assert.equal(path,
+      'users/professional-uid/documents/private/c74be89a-1267-4482-95ee-5829858f449b.pdf');
+    assert.equal(path.includes('patient'), false);
+    assert.equal(path.includes('Ana Silva'), false);
+  });
+
+  test('invalid MIME types, path traversal and non-opaque identifiers are rejected', () => {
+    assert.throws(() => buildPrivateStoragePath(
+      'professional-uid', 'text/html', 'c74be89a-1267-4482-95ee-5829858f449b'
+    ));
+    assert.throws(() => buildPrivateStoragePath(
+      'professional-uid/other', 'application/pdf', 'c74be89a-1267-4482-95ee-5829858f449b'
+    ));
+    assert.throws(() => buildPrivateStoragePath(
+      'professional-uid', 'application/pdf', '../name-of-patient.pdf'
+    ));
   });
 });
