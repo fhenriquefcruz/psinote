@@ -65,6 +65,7 @@ Current pure-domain coverage includes:
 - psychological report structure;
 - restricted-template issue denial;
 - search normalization and command matching;
+- private document access policy, legacy public URL denial and opaque object-key generation;
 - privacy-preserving diagnostics allowlists, no patient data, bounded memory and opaque routes.
 
 ### Firebase Security Rules
@@ -81,6 +82,9 @@ Runs Firestore and Storage emulators and covers:
 - clinical hard-delete denial;
 - private file access and MIME/size controls;
 - storage overwrite/delete denial;
+- blocked or missing-profile users denied private Storage operations;
+- blocked or missing-profile admin claims denied elevated profile reads;
+- private document metadata path ownership;
 - session revision/lifecycle integrity;
 - immutable session versions;
 - appointment lifecycle/session linkage;
@@ -142,6 +146,8 @@ Current public smoke verifies:
 The GitHub Pages workflow runs E2E, accessibility/mobile, visual-regression and baseline validation **before** deployment. The post-deploy test runs **after** publication and cannot automatically roll back data or frontend changes.
 
 Authenticated production smoke is intentionally not performed with real professional credentials in CI.
+
+Phase 9 rules suites use serialized test files to prevent shared Firebase Emulator fixture resets from racing. These tests are **not evidence** that required cross-service IAM has been configured in the real Firebase project.
 
 ## Local validation
 
