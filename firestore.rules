@@ -7,7 +7,9 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() && request.auth.token.admin == true;
+      return signedIn()
+        && request.auth.token.admin == true
+        && isActiveUser();
     }
 
     function userProfileExists() {
@@ -16,9 +18,10 @@ service cloud.firestore {
     }
 
     function isActiveUser() {
-      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return userProfileExists()
-        && (!profile.keys().hasAny(['blocked']) || profile.blocked != true);
+        && get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.get('blocked', false) != true;
     }
 
     function ownsExistingRecord() {
