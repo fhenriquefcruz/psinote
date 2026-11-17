@@ -22,6 +22,7 @@ import {
   DOCUMENT_STATUSES,
   safeDocumentFileName
 } from '../domain/documents';
+import { isPrivateDocumentReference } from '../domain/documentAccess';
 import {
   safelySyncSearchEntry,
   syncDocumentSearchEntry,
@@ -266,19 +267,14 @@ export const getDocumentAccessUrl = async (
 ) => {
   assertDocumentOwner(documentData, psychologistId);
 
-  if (
-    documentData.storageProvider === 'firebase'
-    && documentData.storagePath
-  ) {
-    return {
-      url: await getPrivateDocumentBlobUrl(documentData.storagePath),
-      revokeAfterUse: true
-    };
+  if (!isPrivateDocumentReference(documentData, psychologistId)) {
+    throw new Error(
+      'Documento legado indisponível. Solicite a migração para armazenamento privado.'
+    );
   }
 
-  if (documentData.fileURL) {
-    return { url: documentData.fileURL, revokeAfterUse: false };
-  }
-
-  throw new Error('Arquivo indisponível.');
+  return {
+    url: await getPrivateDocumentBlobUrl(documentData.storagePath),
+    revokeAfterUse: true
+  };
 };
