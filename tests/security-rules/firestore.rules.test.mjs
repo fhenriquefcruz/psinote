@@ -865,6 +865,29 @@ describe('Document draft and immutable issue lifecycle', () => {
     );
   });
 
+  test('document metadata cannot reference foreign or non-private storage paths', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    for (const storagePath of [
+      'users/bob/documents/private/foreign.pdf',
+      'https://legacy.example.test/public/file.pdf',
+      'users/alice/documents/private/../outside.pdf',
+      'users/alice/documents/private/nested/invalid.pdf'
+    ]) {
+      await assertFails(
+        setDoc(doc(alice, 'documents/forged-' + storagePath.length), attachmentPayload({
+          storagePath
+        }))
+      );
+    }
+
+    await assertSucceeds(
+      setDoc(doc(alice, 'documents/opaque-path'), attachmentPayload({
+        storagePath: 'users/alice/documents/private/opaque.pdf'
+      }))
+    );
+  });
+
   test('document creation cannot link to another tenant patient', async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await setDoc(
