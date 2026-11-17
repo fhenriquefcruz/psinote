@@ -4,7 +4,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  orderBy,
   query,
   serverTimestamp,
   where,
@@ -22,6 +21,7 @@ import {
   DOCUMENT_STATUSES,
   safeDocumentFileName
 } from '../domain/documents';
+import { isPrivateDocumentReference, sortDocumentsNewestFirst } from '../domain/documentAccess';
 import {
   safelySyncSearchEntry,
   syncDocumentSearchEntry,
@@ -232,8 +232,7 @@ export const issueGeneratedDocument = async ({
 export const getDocuments = async (psychologistId, patientId = null) => {
   let documentsQuery = query(
     collection(db, COLLECTION),
-    where('psychologistId', '==', psychologistId),
-    orderBy('uploadedAt', 'desc')
+    where('psychologistId', '==', psychologistId)
   );
 
   if (patientId) {
@@ -244,10 +243,10 @@ export const getDocuments = async (psychologistId, patientId = null) => {
   }
 
   const querySnapshot = await getDocs(documentsQuery);
-  return querySnapshot.docs.map((snapshot) => ({
+  return sortDocumentsNewestFirst(querySnapshot.docs.map((snapshot) => ({
     id: snapshot.id,
     ...snapshot.data()
-  }));
+  })));
 };
 
 /** @returns {Promise<DocumentRecord | null>} */
@@ -266,19 +265,14 @@ export const getDocumentAccessUrl = async (
 ) => {
   assertDocumentOwner(documentData, psychologistId);
 
-  if (
-    documentData.storageProvider === 'firebase'
-    && documentData.storagePath
-  ) {
-    return {
-      url: await getPrivateDocumentBlobUrl(documentData.storagePath),
-      revokeAfterUse: true
-    };
+  if (!isPrivateDocumentReference(documentData, psychologistId)) {
+    throw new Error(
+      'Documento legado indisponível. Solicite a migração para armazenamento privado.'
+    );
   }
 
-  if (documentData.fileURL) {
-    return { url: documentData.fileURL, revokeAfterUse: false };
-  }
-
-  throw new Error('Arquivo indisponível.');
+  return {
+    url: await getPrivateDocumentBlobUrl(documentData.storagePath),
+    revokeAfterUse: true
+  };
 };

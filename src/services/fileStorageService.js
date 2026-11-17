@@ -1,5 +1,6 @@
 import { getBlob, ref, uploadBytes } from 'firebase/storage';
 import { storage } from '../firebase/config';
+import { buildPrivateStoragePath } from '../domain/documentAccess';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set([
@@ -10,14 +11,6 @@ const ALLOWED_MIME_TYPES = new Set([
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ]);
-
-const safeFileName = (name = 'arquivo') =>
-  name
-    .normalize('NFKD')
-    .replace(/[^a-zA-Z0-9._-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(-120) || 'arquivo';
 
 const randomId = () => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -44,11 +37,10 @@ export const calculateSha256 = async (file) => {
     .join('');
 };
 
-export const uploadPrivateDocument = async (file, psychologistId, patientId = null) => {
+export const uploadPrivateDocument = async (file, psychologistId, _patientId = null) => {
   validateDocumentFile(file);
 
-  const patientSegment = patientId || 'general';
-  const path = `users/${psychologistId}/documents/${patientSegment}/${randomId()}_${safeFileName(file.name)}`;
+  const path = buildPrivateStoragePath(psychologistId, file.type, randomId());
   const storageRef = ref(storage, path);
 
   await uploadBytes(storageRef, file, {

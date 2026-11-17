@@ -104,7 +104,7 @@ Every generated issue is a new immutable record. Revision is modeled as a new dr
 
 System templates are versioned in code under `src/domain/documentTemplates.js`. Future user/organization-authored templates will require a separately secured template registry.
 
-A permanent public URL is not target-state metadata.
+A permanent public URL is not target-state metadata. Legacy public URLs are not opened by the client as fallback access; until verified migration the UI flags the historical record as unavailable. New object keys omit original filenames and patient IDs.
 
 ### search_entries
 Derived, non-authoritative metadata used by the global command/search palette.

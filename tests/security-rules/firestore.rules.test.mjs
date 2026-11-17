@@ -66,6 +66,11 @@ beforeEach(async () => {
     await Promise.all([
       setDoc(doc(db, 'users/alice'), profile({ email: 'alice@example.test' })),
       setDoc(doc(db, 'users/bob'), profile({ email: 'bob@example.test' })),
+      setDoc(doc(db, 'users/admin-user'), profile({ email: 'admin@example.test' })),
+      setDoc(doc(db, 'users/blocked-admin'), profile({
+        email: 'blocked-admin@example.test',
+        blocked: true
+      })),
       setDoc(
         doc(db, 'users/blocked'),
         profile({ email: 'blocked@example.test', blocked: true })
@@ -228,6 +233,17 @@ describe('Account privilege boundaries', () => {
         role: 'admin'
       })
     );
+  });
+
+  test('admin claim cannot bypass blocked or missing profile status', async () => {
+    const blockedAdmin = testEnv.authenticatedContext('blocked-admin', {
+      admin: true
+    }).firestore();
+    const unknownAdmin = testEnv.authenticatedContext('unknown-admin', {
+      admin: true
+    }).firestore();
+    await assertFails(getDoc(doc(blockedAdmin, 'users/alice')));
+    await assertFails(getDoc(doc(unknownAdmin, 'users/alice')));
   });
 
   test('admin custom claim can inspect account profiles but not clinical records', async () => {
@@ -846,6 +862,29 @@ describe('Document draft and immutable issue lifecycle', () => {
         updatedAt: '2026-10-03T02:00:00.000Z',
         updatedBy: 'alice'
       })
+    );
+  });
+
+  test('document metadata cannot reference foreign or non-private storage paths', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore();
+
+    for (const storagePath of [
+      'users/bob/documents/private/foreign.pdf',
+      'https://legacy.example.test/public/file.pdf',
+      'users/alice/documents/private/../outside.pdf',
+      'users/alice/documents/private/nested/invalid.pdf'
+    ]) {
+      await assertFails(
+        setDoc(doc(alice, 'documents/forged-' + storagePath.length), attachmentPayload({
+          storagePath
+        }))
+      );
+    }
+
+    await assertSucceeds(
+      setDoc(doc(alice, 'documents/opaque-path'), attachmentPayload({
+        storagePath: 'users/alice/documents/private/opaque.pdf'
+      }))
     );
   });
 

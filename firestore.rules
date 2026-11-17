@@ -7,7 +7,9 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() && request.auth.token.admin == true;
+      return signedIn()
+        && request.auth.token.admin == true
+        && isActiveUser();
     }
 
     function userProfileExists() {
@@ -16,9 +18,10 @@ service cloud.firestore {
     }
 
     function isActiveUser() {
-      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return userProfileExists()
-        && (!profile.keys().hasAny(['blocked']) || profile.blocked != true);
+        && get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.get('blocked', false) != true;
     }
 
     function ownsExistingRecord() {
@@ -447,6 +450,9 @@ service cloud.firestore {
         && request.resource.data.uploadedBy == request.auth.uid
         && request.resource.data.storageProvider == 'firebase'
         && request.resource.data.storagePath is string
+        && request.resource.data.storagePath.matches(
+          'users/' + request.auth.uid + '/documents/[^/]+/[^/]+'
+        )
         && request.resource.data.fileType is string
         && request.resource.data.fileSize is int
         && request.resource.data.fileSize > 0

@@ -27,6 +27,10 @@ const checks = [
     pattern: /\.getPublicUrl\s*\(/
   },
   {
+    label: 'browser-generated Firebase download-token URL',
+    pattern: /\bgetDownloadURL\s*\(/
+  },
+  {
     label: 'destructive Firestore delete in browser bundle',
     pattern: /\bdeleteDoc\s*\(/
   },
@@ -65,6 +69,13 @@ for (const file of searchBoundaryFiles) {
       + path.relative(root, file.path)
     );
   }
+}
+
+const documentReader = sourceFiles.find((file) =>
+  path.relative(root, file.path).replace(/\\/g, '/') === 'src/services/documentService.js'
+);
+if (!documentReader || /\bdocumentData\.fileURL\b/.test(documentReader.content)) {
+  violations.push('legacy public-link fallback in document access service');
 }
 
 for (const requiredFile of ['firestore.rules', 'storage.rules', 'firebase.json']) {

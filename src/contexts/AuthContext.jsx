@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
-  onAuthStateChanged,
+  onIdTokenChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
@@ -27,7 +27,11 @@ export function AuthProvider({ children }) {
   const [userRole, setUserRole] = useState('user');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let alive = true;
+    let authGeneration = 0;
+    // Token refresh and sign-in/out can race an earlier profile fetch.
+    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
+      const generation = ++authGeneration;
       setLoading(true);
 
       if (!firebaseUser) {
@@ -67,6 +71,7 @@ export function AuthProvider({ children }) {
           await setDoc(doc(db, 'users', firebaseUser.uid), profile);
         }
 
+        if (!alive || generation !== authGeneration) return;
         if (profile.blocked === true) {
           await signOut(auth);
           return;
@@ -76,16 +81,21 @@ export function AuthProvider({ children }) {
         setUserProfile({ ...profile, role });
         setUserRole(role);
       } catch (_error) {
+        if (!alive || generation !== authGeneration) return;
         console.error('Falha ao inicializar sessão autenticada');
         setUser(null);
         setUserProfile(null);
         setUserRole('user');
       } finally {
-        setLoading(false);
+        if (alive && generation === authGeneration) setLoading(false);
       }
     });
 
-    return unsubscribe;
+    return () => {
+      alive = false;
+      authGeneration += 1;
+      unsubscribe();
+    };
   }, []);
 
   const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
