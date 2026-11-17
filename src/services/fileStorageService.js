@@ -1,5 +1,6 @@
 import { getBlob, ref, uploadBytes } from 'firebase/storage';
 import { storage } from '../firebase/config';
+import { buildPrivateStoragePath } from '../domain/documentAccess';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set([
@@ -10,17 +11,6 @@ const ALLOWED_MIME_TYPES = new Set([
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ]);
-
-// Never put a patient identifier or uploaded filename in the object key.
-// User-visible names remain only in owner-protected Firestore document metadata.
-const MIME_EXTENSIONS = Object.freeze({
-  'application/pdf': '.pdf',
-  'image/jpeg': '.jpg',
-  'image/png': '.png',
-  'image/webp': '.webp',
-  'application/msword': '.doc',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx'
-});
 
 const randomId = () => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -50,7 +40,7 @@ export const calculateSha256 = async (file) => {
 export const uploadPrivateDocument = async (file, psychologistId, _patientId = null) => {
   validateDocumentFile(file);
 
-  const path = `users/${psychologistId}/documents/private/${randomId()}${MIME_EXTENSIONS[file.type]}`;
+  const path = buildPrivateStoragePath(psychologistId, file.type, randomId());
   const storageRef = ref(storage, path);
 
   await uploadBytes(storageRef, file, {
