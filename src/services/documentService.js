@@ -4,7 +4,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  orderBy,
   query,
   serverTimestamp,
   where,
@@ -22,7 +21,7 @@ import {
   DOCUMENT_STATUSES,
   safeDocumentFileName
 } from '../domain/documents';
-import { isPrivateDocumentReference } from '../domain/documentAccess';
+import { isPrivateDocumentReference, sortDocumentsNewestFirst } from '../domain/documentAccess';
 import {
   safelySyncSearchEntry,
   syncDocumentSearchEntry,
@@ -233,8 +232,7 @@ export const issueGeneratedDocument = async ({
 export const getDocuments = async (psychologistId, patientId = null) => {
   let documentsQuery = query(
     collection(db, COLLECTION),
-    where('psychologistId', '==', psychologistId),
-    orderBy('uploadedAt', 'desc')
+    where('psychologistId', '==', psychologistId)
   );
 
   if (patientId) {
@@ -245,10 +243,10 @@ export const getDocuments = async (psychologistId, patientId = null) => {
   }
 
   const querySnapshot = await getDocs(documentsQuery);
-  return querySnapshot.docs.map((snapshot) => ({
+  return sortDocumentsNewestFirst(querySnapshot.docs.map((snapshot) => ({
     id: snapshot.id,
     ...snapshot.data()
-  }));
+  })));
 };
 
 /** @returns {Promise<DocumentRecord | null>} */
