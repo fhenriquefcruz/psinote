@@ -49,6 +49,16 @@ The browser is treated as an untrusted client.
 - Privileged changes require a trusted server/Admin SDK.
 - Document access must be authenticated and owner-scoped.
 
+## Phase 9 — active accounts and private file boundary
+
+- Administrative inspection of other account profiles requires a Firebase custom claim **and** an active Firestore user profile.
+- Storage authorization now checks the same profile's existence/blocked state via Firestore. This cross-service rules dependency requires Firebase-managed IAM activation in the actual Firebase project and staging proof before production.
+- The app never opens historical `fileURL` public links as a fallback for private documents. The old public objects may still be exposed at the original provider and must be audited, migrated and revoked.
+- New Storage object keys are opaque and exclude patient IDs and original filenames. Existing object paths remain readable if owner-scoped and valid.
+- A claim update is reflected on Firebase token refresh; immediate administrative revocation remains a trusted-backend operational responsibility.
+
+Detailed audit, residual risks and evidence: `docs/PHASE_9_PRIVACY_SECURITY.md`.
+
 ## Known remaining security work
 
 Before production completion:
