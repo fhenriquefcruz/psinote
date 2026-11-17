@@ -20,6 +20,7 @@ import {
 import { getDocumentDrafts } from '../../services/documentDraftService';
 import { getPatients } from '../../services/patientService';
 import { getDocumentTemplate } from '../../domain/documentTemplates';
+import { isPrivateDocumentReference } from '../../domain/documentAccess';
 import styles from './Documents.module.css';
 
 const CATEGORIES = [
@@ -285,6 +286,12 @@ export default function Documents() {
           <div>
             <div className="section-kicker">Acervo</div>
             <h2 className="section-title">Documentos armazenados</h2>
+            {documents.some((item) => !isPrivateDocumentReference(item, user.uid)) && (
+              <p className="page-subtitle" role="status">
+                Alguns documentos antigos estão bloqueados para evitar o uso de links
+                públicos. Acesso somente após migração e verificação do arquivo privado.
+              </p>
+            )}
           </div>
 
           <div className={styles.filters}>
@@ -324,6 +331,7 @@ export default function Documents() {
           <div className={styles.documentList}>
             {filteredDocuments.map((item) => {
               const issued = item.status === 'issued' || item.kind === 'generated';
+              const privateAccess = isPrivateDocumentReference(item, user.uid);
               const template = item.templateId
                 ? getDocumentTemplate(item.templateId, item.templateVersion)
                 : null;
@@ -344,6 +352,9 @@ export default function Documents() {
                       <span className={'badge ' + (issued ? 'badge-success' : 'badge-neutral')}>
                         {issued ? 'Emitido' : 'Anexo'}
                       </span>
+                      {!privateAccess && (
+                        <span className="badge badge-warning">Migração necessária</span>
+                      )}
                     </div>
 
                     <span>
@@ -357,10 +368,14 @@ export default function Documents() {
                   <button
                     type="button"
                     className="button button-ghost"
+                    disabled={!privateAccess}
+                    title={privateAccess
+                      ? 'Abrir arquivo privado'
+                      : 'Este documento legado requer migração segura antes do acesso'}
                     onClick={() => handleOpenDocument(item)}
                   >
                     <Download size={16} aria-hidden="true" />
-                    Abrir
+                    {privateAccess ? 'Abrir' : 'Acesso pendente'}
                   </button>
                 </article>
               );
