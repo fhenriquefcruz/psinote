@@ -1,36 +1,42 @@
-const FIREBASE_CODE_PATTERN =
-  /^(auth|firestore|storage)\/[a-z0-9-]{1,64}$/;
-
-const SAFE_CATEGORIES = new Set([
-  'ui_crash',
-  'unhandled_error',
-  'unhandled_rejection',
-  'operation_failure'
+// Diagnostic events contain only allowlisted technical metadata.
+// Never include error.message, stack, URL, account, record, user or clinical text.
+const CATEGORIES = new Set(['ui_crash', 'unhandled_error', 'unhandled_rejection', 'operation_failure']);
+const SEVERITIES = new Set(['error', 'warning']);
+const OPERATIONS = new Set(['react.render', 'window.error', 'window.unhandledrejection']);
+const ERROR_NAMES = new Set(['Error', 'TypeError', 'ReferenceError', 'SyntaxError', 'RangeError', 'NetworkError', 'FirebaseError', 'ChunkLoadError']);
+const ERROR_CODES = new Set([
+  'auth/network-request-failed',
+  'auth/too-many-requests',
+  'auth/user-disabled',
+  'auth/invalid-credential',
+  'firestore/permission-denied',
+  'firestore/unavailable',
+  'storage/unauthorized',
+  'storage/retry-limit-exceeded',
+  'permission-denied',
+  'unavailable',
+  'resource-exhausted'
 ]);
-
-const SAFE_SEVERITIES = new Set([
-  'error',
-  'warning'
+const ROUTE_KEYS = new Set([
+  'patients.new', 'patients.detail', 'patients.list',
+  'sessions.new', 'sessions.workspace', 'sessions.list',
+  'documents.generate', 'documents.list', 'agenda', 'reports',
+  'admin', 'settings', 'dashboard', 'auth.login', 'auth.register',
+  'auth.reset', 'unknown'
 ]);
-
-const truncateToken = (value, maxLength = 64) => {
-  const normalized = String(value || '')
-    .replace(/[^a-zA-Z0-9._/-]/g, '-')
-    .slice(0, maxLength);
-
-  return normalized || null;
-};
+const MAX_LOCAL_EVENTS = 20;
+const localEvents = [];
 
 export const routeKeyFromPath = (pathname = '') => {
-  const path = String(pathname || '').replace(/\/+$/, '') || '/';
-
+  const path = typeof pathname === 'string' ? pathname.replace(/\/+$/, '') : '';
   if (/\/patients\/new$/.test(path)) return 'patients.new';
+  if (/\/patients\/edit\/[^/]+$/.test(path)) return 'patients.detail';
   if (/\/patients\/[^/]+$/.test(path)) return 'patients.detail';
   if (/\/patients$/.test(path)) return 'patients.list';
   if (/\/sessions\/new$/.test(path)) return 'sessions.new';
   if (/\/sessions\/[^/]+$/.test(path)) return 'sessions.workspace';
   if (/\/sessions$/.test(path)) return 'sessions.list';
-  if (/\/documents\/generate/.test(path)) return 'documents.generate';
+  if (/\/documents\/generate(?:\/[^/]+)?$/.test(path)) return 'documents.generate';
   if (/\/documents$/.test(path)) return 'documents.list';
   if (/\/agenda$/.test(path)) return 'agenda';
   if (/\/reports$/.test(path)) return 'reports';
@@ -40,120 +46,52 @@ export const routeKeyFromPath = (pathname = '') => {
   if (/\/login$/.test(path)) return 'auth.login';
   if (/\/register$/.test(path)) return 'auth.register';
   if (/\/forgot-password$/.test(path)) return 'auth.reset';
-
   return 'unknown';
 };
 
-const safeErrorName = (error) => {
-  const name = error && typeof error === 'object' && 'name' in error
-    ? error.name
-    : 'Error';
+const errorField = (error, field) => (
+  error && typeof error === 'object' && field in error
+    ? error[field]
+    : null
+);
 
-  return truncateToken(name, 48) || 'Error';
-};
+const eventId = () => (
+  typeof globalThis.crypto?.randomUUID === 'function'
+    ? globalThis.crypto.randomUUID()
+    : 'local-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10)
+);
 
-const safeErrorCode = (error) => {
-  if (!error || typeof error !== 'object' || !('code' in error)) return null;
-
-  const code = String(error.code || '');
-  return FIREBASE_CODE_PATTERN.test(code) ? code : null;
-};
-
-const randomEventId = () => {
-  if (globalThis.crypto?.randomUUID) {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return (
-    'diag-'
-    + Date.now().toString(36)
-    + '-'
-    + Math.random().toString(36).slice(2, 10)
-  );
-};
-
-export const createDiagnosticEvent = (
-  error,
-  context = {},
-  timestamp = new Date()
-) => {
-  const category = SAFE_CATEGORIES.has(context.category)
-    ? context.category
-    : 'operation_failure';
-
-  const severity = SAFE_SEVERITIES.has(context.severity)
-    ? context.severity
-    : 'error';
-
-  const configuredBuildId = import.meta.env?.VITE_BUILD_SHA;
-
+export const createDiagnosticEvent = (error, context = {}, timestamp = new Date()) => {
+  const name = errorField(error, 'name');
+  const code = errorField(error, 'code');
+  const build = import.meta.env?.VITE_BUILD_SHA;
   return {
     schemaVersion: 1,
-    eventId: randomEventId(),
+    eventId: eventId(),
     timestamp: timestamp.toISOString(),
-    category,
-    severity,
-    operation: truncateToken(context.operation, 64),
-    routeKey: truncateToken(
-      context.routeKey || routeKeyFromPath(context.pathname),
-      64
-    ),
-    errorName: safeErrorName(error),
-    errorCode: safeErrorCode(error),
-    buildId: /^[a-f0-9]{7,64}$/i.test(configuredBuildId || '')
-      ? configuredBuildId
-      : null
+    category: CATEGORIES.has(context.category) ? context.category : 'operation_failure',
+    severity: SEVERITIES.has(context.severity) ? context.severity : 'error',
+    operation: OPERATIONS.has(context.operation) ? context.operation : null,
+    routeKey: ROUTE_KEYS.has(context.routeKey)
+      ? context.routeKey
+      : routeKeyFromPath(context.pathname),
+    errorName: ERROR_NAMES.has(name) ? name : 'Error',
+    errorCode: ERROR_CODES.has(code) ? code : null,
+    buildId: typeof build === 'string' && /^[a-f0-9]{7,64}$/i.test(build) ? build : null
   };
 };
 
-export const sendDiagnosticEvent = (event) => {
-  const endpoint = import.meta.env?.VITE_DIAGNOSTICS_ENDPOINT;
-
-  if (!endpoint) {
-    if (import.meta.env?.DEV) {
-      console.error('[PsiNote diagnostic]', event);
-    }
-    return false;
-  }
-
-  try {
-    const url = new URL(endpoint, window.location.origin);
-
-    if (url.protocol !== 'https:' && url.hostname !== 'localhost') {
-      return false;
-    }
-
-    const payload = JSON.stringify(event);
-
-    if (navigator.sendBeacon) {
-      return navigator.sendBeacon(
-        url.toString(),
-        new Blob([payload], { type: 'application/json' })
-      );
-    }
-
-    fetch(url.toString(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: payload,
-      keepalive: true,
-      credentials: 'omit',
-      referrerPolicy: 'no-referrer'
-    }).catch(() => {});
-
-    return true;
-  } catch {
-    return false;
-  }
-};
-
+// Deliberately in-memory only. No third-party telemetry, localStorage or network.
+// A trusted, privacy-reviewed collector is a separate future backend task.
 export const reportTechnicalError = (error, context = {}) => {
   const event = createDiagnosticEvent(error, context);
-  sendDiagnosticEvent(event);
+  localEvents.push(event);
+  if (localEvents.length > MAX_LOCAL_EVENTS) localEvents.shift();
   return event.eventId;
 };
+
+export const readLocalDiagnosticEvents = () => localEvents.map((event) => ({ ...event }));
+export const clearLocalDiagnosticEvents = () => { localEvents.length = 0; };
 
 export const installGlobalDiagnostics = () => {
   if (typeof window === 'undefined') return () => {};
@@ -165,7 +103,6 @@ export const installGlobalDiagnostics = () => {
       pathname: window.location.pathname
     });
   };
-
   const handleRejection = (event) => {
     reportTechnicalError(event.reason, {
       category: 'unhandled_rejection',
@@ -176,7 +113,6 @@ export const installGlobalDiagnostics = () => {
 
   window.addEventListener('error', handleError);
   window.addEventListener('unhandledrejection', handleRejection);
-
   return () => {
     window.removeEventListener('error', handleError);
     window.removeEventListener('unhandledrejection', handleRejection);
