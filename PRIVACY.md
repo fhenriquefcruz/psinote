@@ -72,6 +72,12 @@ Sensitive data must not be sent to an external model by default.
 
 AI-generated content is suggestion only and requires explicit professional review before becoming part of an official record.
 
+## Phase 9 changes and regulatory context
+
+PsiNote no longer opens legacy public `fileURL` as a substitute for authenticated private access. Affected files appear as pending migration in the interface; their original public links remain a separate exposure until revoked at source. New object keys in Firebase Storage are random and omit source filenames and patient IDs.
+
+Retention must be classified by context. CFP guidance indicates at least five years in applicable professional records and, in certain healthcare-establishment scenarios, longer requirements that may reach twenty years. This is **not** an automated deletion timer. There is no browser hard-delete, and a trusted retention/subject-request process remains to be developed. See `docs/PHASE_9_PRIVACY_SECURITY.md`.
+
 ## Legacy Supabase documents
 
 Historical public document URLs are a privacy migration risk.
