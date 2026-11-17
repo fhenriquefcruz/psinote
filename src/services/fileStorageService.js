@@ -11,13 +11,16 @@ const ALLOWED_MIME_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ]);
 
-const safeFileName = (name = 'arquivo') =>
-  name
-    .normalize('NFKD')
-    .replace(/[^a-zA-Z0-9._-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(-120) || 'arquivo';
+// Never put a patient identifier or uploaded filename in the object key.
+// User-visible names remain only in owner-protected Firestore document metadata.
+const MIME_EXTENSIONS = Object.freeze({
+  'application/pdf': '.pdf',
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx'
+});
 
 const randomId = () => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -44,11 +47,10 @@ export const calculateSha256 = async (file) => {
     .join('');
 };
 
-export const uploadPrivateDocument = async (file, psychologistId, patientId = null) => {
+export const uploadPrivateDocument = async (file, psychologistId, _patientId = null) => {
   validateDocumentFile(file);
 
-  const patientSegment = patientId || 'general';
-  const path = `users/${psychologistId}/documents/${patientSegment}/${randomId()}_${safeFileName(file.name)}`;
+  const path = `users/${psychologistId}/documents/private/${randomId()}${MIME_EXTENSIONS[file.type]}`;
   const storageRef = ref(storage, path);
 
   await uploadBytes(storageRef, file, {
