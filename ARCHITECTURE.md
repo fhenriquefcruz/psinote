@@ -17,6 +17,7 @@ Client/patient → intake → anamnesis/context → plan → schedule → sessio
 - Legacy document storage: Supabase Storage.
 - New Phase 0 document storage: Firebase Storage.
 - Trusted backend: none in repository today.
+- Client error containment: React error boundary and allowlisted, ephemeral diagnostics; no remote telemetry.
 
 ## Phase 0 architecture decision
 
@@ -62,6 +63,12 @@ The browser may not:
 Every professional-scoped record must carry an immutable owner/tenant key. In the current single-professional model this is `psychologistId`.
 
 If organizations/clinics are introduced, an explicit `organizationId` and membership model will be added rather than overloading user IDs.
+
+## Phase 8 operational boundary
+
+The release workflow blocks new GitHub Pages artifacts unless baseline, emulator E2E, accessibility/mobile and visual gates pass. A public meta build SHA is checked by post-deploy Playwright smoke. This is a frontend artifact integrity check, not clinical database verification.
+
+Firestore, Firebase Storage, Firebase Auth and legacy Supabase documents require separate operational backup/recovery planning. A backup runbook exists but **no automated production backup or restore exercise is implemented or claimed** by the frontend repository. Hosting security headers/CSP require an explicitly supported infrastructure model.
 
 ## Deployment principle
 
