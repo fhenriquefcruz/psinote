@@ -64,7 +64,8 @@ Current pure-domain coverage includes:
 - conditional Declaration validation;
 - psychological report structure;
 - restricted-template issue denial;
-- search normalization and command matching.
+- search normalization and command matching;
+- privacy-preserving diagnostics allowlists, no patient data, bounded memory and opaque routes.
 
 ### Firebase Security Rules
 
@@ -127,7 +128,7 @@ The test compares SHA-256 of the actual screenshot against a reviewed Linux base
 
 A baseline hash must never be changed merely to make CI pass; the rendered artifact must be inspected first.
 
-### Production smoke
+### Release quality and production smoke
 
 `npm run test:production-smoke`
 
@@ -135,7 +136,10 @@ Current public smoke verifies:
 - deployed production URL responds successfully;
 - PsiNote shell/title loads;
 - the public auth surface renders;
-- uncaught page errors are absent.
+- uncaught page errors are absent;
+- when triggered by the release pipeline, the published build SHA matches the expected commit.
+
+The GitHub Pages workflow runs E2E, accessibility/mobile, visual-regression and baseline validation **before** deployment. The post-deploy test runs **after** publication and cannot automatically roll back data or frontend changes.
 
 Authenticated production smoke is intentionally not performed with real professional credentials in CI.
 
