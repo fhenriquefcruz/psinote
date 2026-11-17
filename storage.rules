@@ -2,8 +2,12 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+    function isActiveOwner(uid) {
+      let profilePath = /databases/(default)/documents/users/$(uid);
+      return request.auth != null
+        && request.auth.uid == uid
+        && firestore.exists(profilePath)
+        && firestore.get(profilePath).data.get('blocked', false) != true;
     }
 
     function allowedDocumentType() {
@@ -12,10 +16,13 @@ service firebase.storage {
       );
     }
 
+    // Cloud Storage -> Firestore authorization requires the Firebase-managed
+    // cross-service IAM permission when deploying to a real project.
+    // Consult docs/PHASE_9_PRIVACY_SECURITY.md before production rollout.
     match /users/{uid}/documents/{allPaths=**} {
-      allow read: if isOwner(uid);
+      allow read: if isActiveOwner(uid);
 
-      allow create: if isOwner(uid)
+      allow create: if isActiveOwner(uid)
         && resource == null
         && request.resource.size > 0
         && request.resource.size <= 10 * 1024 * 1024
