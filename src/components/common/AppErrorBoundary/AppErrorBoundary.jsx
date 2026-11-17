@@ -1,15 +1,11 @@
 import React from 'react';
-import {
-  reportTechnicalError,
-  routeKeyFromPath
-} from '../../../services/diagnosticsService';
+import { reportTechnicalError, routeKeyFromPath } from '../../../services/diagnosticsService';
 import styles from './AppErrorBoundary.module.css';
 
+/** @extends {React.Component<{children: React.ReactNode}, {hasError: boolean, eventId: string | null}>} */
 export default class AppErrorBoundary extends React.Component {
-  state = {
-    hasError: false,
-    eventId: null
-  };
+  /** @type {{hasError: boolean, eventId: string | null}} */
+  state = { hasError: false, eventId: null };
 
   static getDerivedStateFromError() {
     return { hasError: true };
@@ -21,55 +17,42 @@ export default class AppErrorBoundary extends React.Component {
       operation: 'react.render',
       routeKey: routeKeyFromPath(window.location.pathname)
     });
-
     this.setState({ eventId });
   }
 
-  handleReload = () => {
-    window.location.reload();
-  };
+  handleReload = () => window.location.reload();
 
   handleHome = () => {
-    window.location.assign(
-      (import.meta.env.BASE_URL || '/') + 'dashboard'
-    );
+    const base = import.meta.env.BASE_URL || '/psinote/';
+    window.location.assign(base.replace(/\/?$/, '/') + 'dashboard');
   };
 
   render() {
-    if (!this.state.hasError) {
-      return this.props.children;
-    }
+    if (!this.state.hasError) return this.props.children;
 
     return (
       <main className={styles.page}>
-        <section className={styles.card} role="alert">
+        <section className={styles.card} role="alert" aria-labelledby="recovery-title">
           <div className="section-kicker">Falha inesperada</div>
-          <h1>Não foi possível concluir esta tela.</h1>
+          <h1 id="recovery-title">Não foi possível exibir esta tela.</h1>
           <p>
-            Nenhum conteúdo clínico é incluído no diagnóstico técnico.
-            Você pode recarregar a aplicação ou voltar ao início.
+            O PsiNote identificou uma falha técnica. A referência exibida não contém
+            nomes de pacientes nem anotações clínicas.
           </p>
-
           {this.state.eventId && (
             <p className={styles.reference}>
               Referência técnica: <code>{this.state.eventId}</code>
             </p>
           )}
-
+          <p className={styles.note}>
+            Se houver alterações ainda não salvas, recarregar a página pode descartá-las.
+          </p>
           <div className={styles.actions}>
-            <button
-              type="button"
-              className="button button-primary"
-              onClick={this.handleReload}
-            >
+            <button type="button" className="button button-primary" onClick={this.handleReload}>
               Recarregar
             </button>
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={this.handleHome}
-            >
-              Voltar ao início
+            <button type="button" className="button button-secondary" onClick={this.handleHome}>
+              Ir para o painel
             </button>
           </div>
         </section>
