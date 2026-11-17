@@ -36,3 +36,28 @@ export const buildPrivateStoragePath = (psychologistId, mimeType, opaqueId) => {
   return 'users/' + psychologistId + '/documents/private/'
     + opaqueId + EXTENSION_BY_MIME[mimeType];
 };
+
+const timestampMillis = (value) => {
+  if (value && typeof value.toMillis === 'function') {
+    const millis = value.toMillis();
+    return Number.isFinite(millis) ? millis : 0;
+  }
+  if (value instanceof Date) return value.getTime() || 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'string') return Date.parse(value) || 0;
+  return 0;
+};
+
+// Legacy records may lack uploadedAt. Firestore orderBy(uploadedAt) silently
+// excludes those records from queries; sort after fetching owner-scoped data.
+export const sortDocumentsNewestFirst = (documents) => (
+  [...documents].sort((left, right) => {
+    const leftAt = timestampMillis(
+      left.uploadedAt ?? left.createdAt ?? left.issuedAt
+    );
+    const rightAt = timestampMillis(
+      right.uploadedAt ?? right.createdAt ?? right.issuedAt
+    );
+    return rightAt - leftAt;
+  })
+);
