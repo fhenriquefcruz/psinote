@@ -12,10 +12,11 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -40,6 +41,15 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Install Chromium for release checks
+        run: npx playwright install --with-deps chromium
+
+      - name: Pre-deploy E2E, mobile and accessibility gate
+        run: npm run test:e2e:emulated
+
+      - name: Pre-deploy visual regression gate
+        run: npm run test:visual:emulated
+
       - name: Validate release candidate
         run: npm run validate
         env:
@@ -49,6 +59,7 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_BUILD_SHA: ${{ github.sha }}
 
       - name: Configure Pages
         uses: actions/configure-pages@v4
@@ -62,10 +73,8 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Install Chromium for post-deploy smoke
-        run: npx playwright install --with-deps chromium
-
       - name: Post-deploy production smoke
         run: npm run test:production-smoke
         env:
           PSINOTE_PRODUCTION_URL: ${{ steps.deployment.outputs.page_url }}
+          PSINOTE_EXPECTED_BUILD_SHA: ${{ github.sha }}
