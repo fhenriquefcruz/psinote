@@ -74,7 +74,13 @@ Do not log:
 - access tokens;
 - raw uploaded files.
 
-Use technical IDs and coarse operation metadata when troubleshooting.
+Use only coarse, allowlisted technical categories, generic route keys and random incident references. Never include tenant IDs or record IDs in diagnostics.
+
+## Phase 8 diagnostics and continuity status
+
+The client uses an in-memory, 20-event bounded diagnostics buffer. Only allowlisted categories, error names/codes, generic routes and build IDs are retained. Raw error messages, stacks, URLs, identifiers and clinical text are excluded from our diagnostic event schema. There is **no configured remote collector** in the browser implementation.
+
+Operational backup/export, independent restore drills, incident ownership and production hosting security headers remain outstanding. See `docs/PHASE_8_PRODUCTION_READINESS.md`, `docs/OPERATIONS_RUNBOOK.md` and `docs/INCIDENT_RESPONSE.md`.
 
 ## Security changes are not legal certification
 

@@ -20,5 +20,13 @@ test('public production shell loads without uncaught page errors', async ({ page
     page.getByRole('button', { name: /Entrar/i }).first()
   ).toBeVisible();
 
+  const expectedBuild = process.env.PSINOTE_EXPECTED_BUILD_SHA;
+  if (expectedBuild) {
+    await expect(page.locator('meta[name="psinote-build"]')).toHaveAttribute(
+      'content',
+      expectedBuild
+    );
+  }
+
   expect(pageErrors).toEqual([]);
 });
