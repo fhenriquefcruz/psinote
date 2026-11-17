@@ -450,6 +450,9 @@ service cloud.firestore {
         && request.resource.data.uploadedBy == request.auth.uid
         && request.resource.data.storageProvider == 'firebase'
         && request.resource.data.storagePath is string
+        && request.resource.data.storagePath.matches(
+          'users/' + request.auth.uid + '/documents/[^/]+/[^/]+'
+        )
         && request.resource.data.fileType is string
         && request.resource.data.fileSize is int
         && request.resource.data.fileSize > 0
