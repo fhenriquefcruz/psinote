@@ -41,13 +41,15 @@ Treat as legacy stored artifact and surface an explicit migration/provenance sta
 
 Historical public URLs remain a known risk until each object is handled.
 
+**Phase 9 UI safety state:** application fallback access to legacy public URLs has been disabled. The document list displays `Migração necessária` and disables the open control. This prevents accidental reuse of a public link **inside PsiNote** but does not revoke URLs already disseminated or change Supabase objects.
+
 A privileged migration must:
 
 1. inventory every legacy URL/object;
 2. download from the trusted legacy source;
 3. verify MIME and size;
 4. calculate SHA-256;
-5. upload into the private Firebase Storage tenant path;
+5. upload into the private Firebase Storage tenant path using opaque random names (never original filename or patient ID in object key);
 6. write private storage metadata;
 7. verify retrievability with the owner identity;
 8. remove or privatize the old object through the provider/backend;
