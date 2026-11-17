@@ -11,6 +11,7 @@ import {
   ref,
   uploadBytes
 } from 'firebase/storage';
+import { doc, setDoc } from 'firebase/firestore';
 
 const PROJECT_ID = 'demo-psinote-rules';
 const BUCKET = 'gs://demo-psinote-rules.appspot.com';
@@ -19,6 +20,9 @@ let testEnv;
 before(async () => {
   testEnv = await initializeTestEnvironment({
     projectId: PROJECT_ID,
+    firestore: {
+      rules: fs.readFileSync('firestore.rules', 'utf8')
+    },
     storage: {
       rules: fs.readFileSync('storage.rules', 'utf8')
     }
@@ -27,8 +31,15 @@ before(async () => {
 
 beforeEach(async () => {
   await testEnv.clearStorage();
+  await testEnv.clearFirestore();
 
   await testEnv.withSecurityRulesDisabled(async (context) => {
+    await Promise.all([
+      setDoc(doc(context.firestore(), 'users/alice'), { blocked: false }),
+      setDoc(doc(context.firestore(), 'users/bob'), { blocked: false }),
+      setDoc(doc(context.firestore(), 'users/blocked'), { blocked: true })
+    ]);
+
     await uploadBytes(
       ref(
         context.storage(BUCKET),
@@ -94,6 +105,43 @@ describe('Storage tenant isolation', () => {
           anonymous,
           'users/alice/documents/patient-1/existing.pdf'
         )
+      )
+    );
+  });
+});
+
+describe('Storage account lifecycle enforcement', () => {
+  test('blocked owner cannot read an existing file or upload a new one', async () => {
+    const blocked = testEnv.authenticatedContext('blocked').storage(BUCKET);
+    const existing = ref(
+      blocked,
+      'users/blocked/documents/patient-1/existing.pdf'
+    );
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await uploadBytes(
+        ref(context.storage(BUCKET), existing.fullPath),
+        new Uint8Array([1, 2, 3]),
+        { contentType: 'application/pdf' }
+      );
+    });
+
+    await assertFails(getBytes(existing));
+    await assertFails(
+      uploadBytes(
+        ref(blocked, 'users/blocked/documents/patient-1/new.pdf'),
+        new Uint8Array([1]),
+        { contentType: 'application/pdf' }
+      )
+    );
+  });
+
+  test('authenticated user without profile cannot access private files', async () => {
+    const missing = testEnv.authenticatedContext('unknown').storage(BUCKET);
+    await assertFails(
+      uploadBytes(
+        ref(missing, 'users/unknown/documents/general/new.pdf'),
+        new Uint8Array([1]),
+        { contentType: 'application/pdf' }
       )
     );
   });
