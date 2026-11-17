@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { isPrivateDocumentReference, buildPrivateStoragePath } from '../../src/domain/documentAccess.js';
+import { isPrivateDocumentReference, buildPrivateStoragePath, sortDocumentsNewestFirst } from '../../src/domain/documentAccess.js';
 
 const owner = 'professional-uid';
 
@@ -83,5 +83,21 @@ describe('opaque private object keys', () => {
     assert.throws(() => buildPrivateStoragePath(
       'professional-uid', 'application/pdf', '../name-of-patient.pdf'
     ));
+  });
+});
+
+describe('legacy document listing', () => {
+  test('retains records without uploadedAt and sorts by available timestamps', () => {
+    const list = [
+      { id: 'old-unknown' },
+      { id: 'recent', uploadedAt: { toMillis: () => 1200 } },
+      { id: 'legacy-created', createdAt: new Date(1000) },
+      { id: 'older', uploadedAt: new Date(500) }
+    ];
+    assert.deepEqual(
+      sortDocumentsNewestFirst(list).map((item) => item.id),
+      ['recent', 'legacy-created', 'older', 'old-unknown']
+    );
+    assert.equal(list[0].id, 'old-unknown');
   });
 });
