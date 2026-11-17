@@ -66,6 +66,11 @@ beforeEach(async () => {
     await Promise.all([
       setDoc(doc(db, 'users/alice'), profile({ email: 'alice@example.test' })),
       setDoc(doc(db, 'users/bob'), profile({ email: 'bob@example.test' })),
+      setDoc(doc(db, 'users/admin-user'), profile({ email: 'admin@example.test' })),
+      setDoc(doc(db, 'users/blocked-admin'), profile({
+        email: 'blocked-admin@example.test',
+        blocked: true
+      })),
       setDoc(
         doc(db, 'users/blocked'),
         profile({ email: 'blocked@example.test', blocked: true })
@@ -228,6 +233,17 @@ describe('Account privilege boundaries', () => {
         role: 'admin'
       })
     );
+  });
+
+  test('admin claim cannot bypass blocked or missing profile status', async () => {
+    const blockedAdmin = testEnv.authenticatedContext('blocked-admin', {
+      admin: true
+    }).firestore();
+    const unknownAdmin = testEnv.authenticatedContext('unknown-admin', {
+      admin: true
+    }).firestore();
+    await assertFails(getDoc(doc(blockedAdmin, 'users/alice')));
+    await assertFails(getDoc(doc(unknownAdmin, 'users/alice')));
   });
 
   test('admin custom claim can inspect account profiles but not clinical records', async () => {
