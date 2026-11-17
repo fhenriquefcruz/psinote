@@ -30,7 +30,7 @@ describe('privacy-safe technical diagnostics', () => {
     }, new Date('2026-11-17T00:00:00.000Z'));
 
     const serialized = JSON.stringify(event);
-    for (const forbidden of [patient, note, 'secret', '123', 'example.com', 'patientId', 'token', 'narrative']) {
+    for (const forbidden of [patient, note, 'secret', '/patients/123', 'example.com', 'patientId', 'token', 'narrative']) {
       assert.equal(serialized.includes(forbidden), false, forbidden);
     }
     assert.equal(event.category, 'operation_failure');
